@@ -1,3 +1,4 @@
+import { recordLabel, stockName } from './i18n.js';
 import { addHkDays, diffHkDays, hkDateString, hkWallToISO } from './time.js';
 
 export const SEED_TS = Date.parse('2020-01-01T00:00:00.000Z');
@@ -17,18 +18,18 @@ export const PALETTE = [
 ];
 
 const FIELD_DEFS = [
-  ['fld-title', 'title', '標題', 'text', false, true, 'main', 0],
-  ['fld-status', 'statusId', '狀態', 'status', false, true, 'main', 1],
-  ['fld-category', 'categoryId', '分類', 'category', false, true, 'main', 2],
-  ['fld-contact', 'contact', '要搵嘅人', 'text', true, true, 'more', 10],
-  ['fld-owner', 'owner', '負責人', 'text', true, true, 'more', 11],
-  ['fld-start', 'startAt', '開始時間', 'datetime', true, true, 'more', 12],
-  ['fld-due', 'dueAt', '期限', 'datetime', true, true, 'more', 13],
-  ['fld-waiting', 'waitingOn', '等緊乜', 'text', true, true, 'more', 14],
-  ['fld-follow', 'nextFollowUp', '下次跟進日期', 'date', true, true, 'more', 15],
-  ['fld-issue', 'issue', 'Issue', 'textarea', true, true, 'more', 16],
-  ['fld-solution', 'solution', '解決辦法', 'textarea', true, true, 'more', 17],
-  ['fld-notes', 'notes', '備註', 'textarea', true, true, 'more', 18],
+  ['fld-title', 'title', 'text', false, true, 'main', 0],
+  ['fld-status', 'statusId', 'status', false, true, 'main', 1],
+  ['fld-category', 'categoryId', 'category', false, true, 'main', 2],
+  ['fld-contact', 'contact', 'text', true, true, 'more', 10],
+  ['fld-owner', 'owner', 'text', true, true, 'more', 11],
+  ['fld-start', 'startAt', 'datetime', true, true, 'more', 12],
+  ['fld-due', 'dueAt', 'datetime', true, true, 'more', 13],
+  ['fld-waiting', 'waitingOn', 'text', true, true, 'more', 14],
+  ['fld-follow', 'nextFollowUp', 'date', true, true, 'more', 15],
+  ['fld-issue', 'issue', 'textarea', true, true, 'more', 16],
+  ['fld-solution', 'solution', 'textarea', true, true, 'more', 17],
+  ['fld-notes', 'notes', 'textarea', true, true, 'more', 18],
 ];
 
 function sortKeys(value) {
@@ -133,37 +134,39 @@ export function shouldWrite(current, incoming) {
   return canon(pick(current, incoming)) === canon(incoming) && canon(current) !== canon(incoming);
 }
 
-export function defaultStatuses(now = SEED_TS) {
+export function defaultStatuses(now = SEED_TS, lang = 'zh-Hant') {
   return [
-    { id: 'st-todo', name: '待做', color: '#8a8175', role: 'open', order: 0, updatedAt: now, deletedAt: null },
-    { id: 'st-doing', name: '進行中', color: '#0c6b56', role: 'open', order: 1, updatedAt: now, deletedAt: null },
-    { id: 'st-wait', name: '等緊人／等回覆', color: '#a15c07', role: 'waiting', order: 2, updatedAt: now, deletedAt: null },
-    { id: 'st-done', name: '已完成', color: '#1f7a4d', role: 'done', order: 3, updatedAt: now, deletedAt: null },
+    { id: 'st-todo', builtinKey: 'todo', name: stockName('status', 'todo', lang), color: '#8a8175', role: 'open', order: 0, updatedAt: now, deletedAt: null, customized: false },
+    { id: 'st-doing', builtinKey: 'doing', name: stockName('status', 'doing', lang), color: '#0c6b56', role: 'open', order: 1, updatedAt: now, deletedAt: null, customized: false },
+    { id: 'st-wait', builtinKey: 'waiting', name: stockName('status', 'waiting', lang), color: '#a15c07', role: 'waiting', order: 2, updatedAt: now, deletedAt: null, customized: false },
+    { id: 'st-done', builtinKey: 'done', name: stockName('status', 'done', lang), color: '#1f7a4d', role: 'done', order: 3, updatedAt: now, deletedAt: null, customized: false },
   ];
 }
 
-export function defaultCategories(now = SEED_TS) {
+export function defaultCategories(now = SEED_TS, lang = 'zh-Hant') {
   return [
-    { id: 'cat-work', name: '工作', color: '#1d4e89', order: 0, updatedAt: now, deletedAt: null },
-    { id: 'cat-client', name: '客戶', color: '#9c3b5a', order: 1, updatedAt: now, deletedAt: null },
-    { id: 'cat-personal', name: '個人', color: '#3d6b4f', order: 2, updatedAt: now, deletedAt: null },
-    { id: 'cat-money', name: '財務', color: '#8a5a10', order: 3, updatedAt: now, deletedAt: null },
+    { id: 'cat-work', builtinKey: 'work', name: stockName('category', 'work', lang), color: '#1d4e89', order: 0, updatedAt: now, deletedAt: null, customized: false },
+    { id: 'cat-client', builtinKey: 'client', name: stockName('category', 'client', lang), color: '#9c3b5a', order: 1, updatedAt: now, deletedAt: null, customized: false },
+    { id: 'cat-personal', builtinKey: 'personal', name: stockName('category', 'personal', lang), color: '#3d6b4f', order: 2, updatedAt: now, deletedAt: null, customized: false },
+    { id: 'cat-money', builtinKey: 'money', name: stockName('category', 'money', lang), color: '#8a5a10', order: 3, updatedAt: now, deletedAt: null, customized: false },
   ];
 }
 
-export function defaultFields(now = SEED_TS) {
-  return FIELD_DEFS.map(([id, key, label, type, hideable, visible, section, order]) => ({
+export function defaultFields(now = SEED_TS, lang = 'zh-Hant') {
+  return FIELD_DEFS.map(([id, key, type, hideable, visible, section, order]) => ({
     id,
     key,
-    label,
+    label: stockName('field', key, lang),
     type,
     builtin: true,
+    builtinKey: key,
     hideable,
     visible,
     section,
     order,
     updatedAt: now,
     deletedAt: null,
+    customized: false,
   }));
 }
 
@@ -193,50 +196,51 @@ export function blankItem(partial = {}, now = Date.now()) {
   };
 }
 
-export function exampleItems(now = new Date()) {
+export function exampleItems(now = new Date(), lang = 'zh-Hant') {
   const today = hkDateString(now);
+  const en = lang === 'en';
   return [
     blankItem({
       id: 'ex-tax',
-      title: '例子：交稅表俾會計師',
+      title: en ? 'Example: Send the tax papers to the accountant' : '例子：交稅表俾會計師',
       statusId: 'st-doing',
       categoryId: 'cat-money',
-      contact: '李會計',
-      owner: '我',
+      contact: en ? 'Lee' : '李會計',
+      owner: en ? 'Me' : '我',
       dueAt: hkWallToISO(today, '15:00'),
       dueTimeSet: true,
-      notes: '記得帶埋收據',
+      notes: en ? 'Bring the receipts' : '記得帶埋收據',
       isExample: true,
       createdAt: SEED_TS,
       updatedAt: SEED_TS,
     }),
     blankItem({
       id: 'ex-quote',
-      title: '例子：等陳生確認報價',
+      title: en ? 'Example: Wait for Chris to confirm the quote' : '例子：等陳生確認報價',
       statusId: 'st-wait',
       categoryId: 'cat-client',
-      contact: '陳生',
-      owner: '我',
-      waitingOn: '等佢確認第三版報價',
+      contact: en ? 'Chris' : '陳生',
+      owner: en ? 'Me' : '我',
+      waitingOn: en ? 'Waiting on the third version of the quote' : '等佢確認第三版報價',
       waitingSince: hkWallToISO(addHkDays(today, -5), '09:00'),
       nextFollowUp: today,
-      issue: '價錢未夾到',
+      issue: en ? "The price isn't agreed" : '價錢未夾到',
       isExample: true,
       createdAt: SEED_TS,
       updatedAt: SEED_TS,
     }),
     blankItem({
       id: 'ex-meeting',
-      title: '例子：準備客戶會議議程',
+      title: en ? 'Example: Prepare the client meeting agenda' : '例子：準備客戶會議議程',
       statusId: 'st-todo',
       categoryId: 'cat-work',
-      contact: '黃小姐',
-      owner: '我',
+      contact: en ? 'Ms Wong' : '黃小姐',
+      owner: en ? 'Me' : '我',
       dueAt: hkWallToISO(addHkDays(today, -1), '10:00'),
       dueTimeSet: true,
-      notes: '帶埋上年合約',
-      issue: '議程未定',
-      solution: '先用三點：進度、報價、下一步',
+      notes: en ? "Bring last year's contract" : '帶埋上年合約',
+      issue: en ? "The agenda isn't set" : '議程未定',
+      solution: en ? 'Three points: progress, the quote, and the next step' : '先用三點：進度、報價、下一步',
       isExample: true,
       createdAt: SEED_TS,
       updatedAt: SEED_TS,
@@ -244,13 +248,13 @@ export function exampleItems(now = new Date()) {
   ];
 }
 
-export function freshDoc(now = new Date()) {
+export function freshDoc(now = new Date(), lang = 'zh-Hant') {
   return {
     v: 1,
-    items: exampleItems(now),
-    statuses: defaultStatuses(),
-    categories: defaultCategories(),
-    fields: defaultFields(),
+    items: exampleItems(now, lang),
+    statuses: defaultStatuses(SEED_TS, lang),
+    categories: defaultCategories(SEED_TS, lang),
+    fields: defaultFields(SEED_TS, lang),
   };
 }
 
@@ -313,7 +317,9 @@ export function matchesItem(doc, item, filters = {}, now = new Date()) {
     item.solution,
     item.notes,
     category?.name,
+    category ? recordLabel(category, 'category') : '',
     status?.name,
+    status ? recordLabel(status, 'status') : '',
     custom,
   ].join('\n').toLocaleLowerCase('zh-HK');
   return haystack.includes(query);
@@ -349,7 +355,7 @@ function waitingGroups(items, doc, now) {
   const map = new Map();
   for (const item of items) {
     if (statusById(doc, item.statusId)?.role !== 'waiting') continue;
-    const name = normText(item.contact) || '未寫邊個';
+    const name = normText(item.contact) || '';
     if (!map.has(name)) map.set(name, []);
     map.get(name).push(item);
   }
@@ -415,7 +421,7 @@ export function peopleGroups(doc, filters = {}, now = new Date(), mode = 'contac
   const map = new Map();
   for (const item of items) {
     const raw = mode === 'owner' ? item.owner : item.contact;
-    const name = normText(raw) || (mode === 'owner' ? '未指定負責人' : '未指定要搵嘅人');
+    const name = normText(raw) || '';
     if (!map.has(name)) map.set(name, []);
     map.get(name).push(item);
   }
@@ -440,7 +446,7 @@ export function boardColumns(doc, filters = {}, now = new Date()) {
   const orphans = activeItems(doc).filter((item) => !known.has(item.statusId) && matchesItem(doc, item, filters, now));
   if (orphans.length) {
     columns.push({
-      status: { id: '', name: '未有狀態', color: '#8a8175', role: 'open' },
+      status: { id: '', name: '', builtinKey: 'none', color: '#8a8175', role: 'open' },
       items: orphans.sort(compareSchedule),
     });
   }

@@ -1,8 +1,36 @@
 import { addHkDays, hkDateString, hkDow, hkWallToISO, padDate, validYmd } from './time.js';
 
 const WEEKDAYS = { 日: 0, 天: 0, 一: 1, 二: 2, 三: 3, 四: 4, 五: 5, 六: 6 };
+const EN_WEEKDAYS = {
+  sun: 0, sunday: 0,
+  mon: 1, monday: 1,
+  tue: 2, tues: 2, tuesday: 2,
+  wed: 3, wednesday: 3,
+  thu: 4, thur: 4, thurs: 4, thursday: 4,
+  fri: 5, friday: 5,
+  sat: 6, saturday: 6,
+};
+const EN_MONTHS = {
+  jan: 1, january: 1, feb: 2, february: 2, mar: 3, march: 3,
+  apr: 4, april: 4, may: 5, jun: 6, june: 6, jul: 7, july: 7,
+  aug: 8, august: 8, sep: 9, sept: 9, september: 9,
+  oct: 10, october: 10, nov: 11, november: 11, dec: 12, december: 12,
+};
+const MONTH_PATTERN = 'jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|jun(?:e)?|jul(?:y)?|aug(?:ust)?|sep(?:t(?:ember)?)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?';
+const WEEK_PATTERN = 'monday|mon|tuesday|tue|tues|wednesday|wed|thursday|thu|thur|thurs|friday|fri|saturday|sat|sunday|sun';
 
-const DATE_RE = /(大後日|後日|聽日|明天|今日|今天|下(?:週|星期|禮拜)[一二三四五六日天]|(?:星期|週|禮拜)[一二三四五六日天]|\d{4}-\d{1,2}-\d{1,2}|\d{1,2}月\d{1,2}日|\d{1,2}\/\d{1,2}(?:\/\d{2,4})?)/;
+const DATE_PATTERNS = [
+  /大後日|後日|聽日|明天|今日|今天|下(?:週|星期|禮拜)[一二三四五六日天]|(?:星期|週|禮拜)[一二三四五六日天]|\d{4}-\d{1,2}-\d{1,2}|\d{1,2}月\d{1,2}日|\d{1,2}\/\d{1,2}(?:\/\d{2,4})?/,
+  /\bday after tomorrow\b/i,
+  /\btomorrow\b/i,
+  /\btonight\b/i,
+  /\btoday\b/i,
+  /\bin\s+\d+\s+days?\b/i,
+  new RegExp(`\\bnext\\s+(?:${WEEK_PATTERN})\\b`, 'i'),
+  new RegExp(`\\b(?:${WEEK_PATTERN})\\b`, 'i'),
+  new RegExp(`\\b\\d{1,2}(?:st|nd|rd|th)?\\s+(?:${MONTH_PATTERN})(?:\\s+\\d{4})?\\b`, 'i'),
+  new RegExp(`\\b(?:${MONTH_PATTERN})\\s+\\d{1,2}(?:st|nd|rd|th)?(?:,?\\s+\\d{4})?\\b`, 'i'),
+];
 
 function cleanToken(token) {
   return String(token || '').replace(/^[，。,.、:：]+|[，。,.、:：]+$/g, '');
@@ -31,10 +59,34 @@ function dateOfWeek(todayStr, targetDow, mode) {
 export function parseDateToken(token, now = new Date()) {
   const text = cleanToken(token);
   const today = hkDateString(now);
-  const relative = { 今日: 0, 今天: 0, 聽日: 1, 明天: 1, 後日: 2, 大後日: 3 };
-  if (Object.prototype.hasOwnProperty.call(relative, text)) return addHkDays(today, relative[text]);
+  const lower = text.toLowerCase();
+  const relative = { 今日: 0, 今天: 0, 聽日: 1, 明天: 1, 後日: 2, 大後日: 3, today: 0, tonight: 0, tomorrow: 1, 'day after tomorrow': 2 };
+  if (Object.prototype.hasOwnProperty.call(relative, text) || Object.prototype.hasOwnProperty.call(relative, lower)) {
+    return addHkDays(today, relative[text] ?? relative[lower]);
+  }
 
-  let match = text.match(/^下(?:週|星期|禮拜)([一二三四五六日天])$/);
+  let match = lower.match(/^in\s+(\d+)\s+days?$/);
+  if (match) return addHkDays(today, Number(match[1]));
+
+  match = lower.match(/^next\s+([a-z]+)$/);
+  if (match && EN_WEEKDAYS[match[1]] != null) return dateOfWeek(today, EN_WEEKDAYS[match[1]], 'next');
+
+  match = lower.match(/^([a-z]+)$/);
+  if (match && EN_WEEKDAYS[match[1]] != null) return dateOfWeek(today, EN_WEEKDAYS[match[1]], 'upcoming');
+
+  match = lower.match(/^(\d{1,2})(?:st|nd|rd|th)?\s+([a-z]+)(?:\s+(\d{4}))?$/);
+  if (match && EN_MONTHS[match[2]]) {
+    const year = match[3] ? Number(match[3]) : null;
+    return year ? (validYmd(year, EN_MONTHS[match[2]], Number(match[1])) ? padDate(year, EN_MONTHS[match[2]], Number(match[1])) : null) : thisOrNextYear(EN_MONTHS[match[2]], Number(match[1]), today);
+  }
+
+  match = lower.match(/^([a-z]+)\s+(\d{1,2})(?:st|nd|rd|th)?(?:,?\s+(\d{4}))?$/);
+  if (match && EN_MONTHS[match[1]]) {
+    const year = match[3] ? Number(match[3]) : null;
+    return year ? (validYmd(year, EN_MONTHS[match[1]], Number(match[2])) ? padDate(year, EN_MONTHS[match[1]], Number(match[2])) : null) : thisOrNextYear(EN_MONTHS[match[1]], Number(match[2]), today);
+  }
+
+  match = text.match(/^下(?:週|星期|禮拜)([一二三四五六日天])$/);
   if (match) return dateOfWeek(today, WEEKDAYS[match[1]], 'next');
 
   match = text.match(/^(?:星期|週|禮拜)([一二三四五六日天])$/);
@@ -63,6 +115,25 @@ export function parseDateToken(token, now = new Date()) {
     if (validYmd(Number(today.slice(0, 4)), monthFirst, daySecond)) return thisOrNextYear(monthFirst, daySecond, today);
   }
   return null;
+}
+
+function findDate(text, now) {
+  const found = [];
+  for (const re of DATE_PATTERNS) {
+    const match = re.exec(text);
+    if (!match) continue;
+    const date = parseDateToken(match[0], now);
+    if (!date) continue;
+    found.push({
+      index: match.index,
+      length: match[0].length,
+      raw: match[0],
+      date,
+      tonight: /^tonight$/i.test(match[0]),
+    });
+  }
+  found.sort((a, b) => a.index - b.index || b.length - a.length);
+  return found[0] || null;
 }
 
 function to24(hour, daypart, usedDian) {
@@ -99,7 +170,7 @@ function findTime(text) {
   return null;
 }
 
-export function parseQuick(input, now = new Date()) {
+export function parseQuick(input, now = new Date(), lang = 'zh-Hant') {
   let text = String(input || '').replace(/＠/g, '@').replace(/＃/g, '#').trim();
   const result = {
     title: '',
@@ -111,18 +182,22 @@ export function parseQuick(input, now = new Date()) {
     nextFollowUp: null,
   };
 
-  const owner = text.match(/(?:負責人|負責)[:：]\s*([^\s@#]+)/);
+  const owner = text.match(/(?:負責人|負責|owner)[:：]\s*([^\s@#]+)/i);
   if (owner) {
     result.owner = owner[1];
     text = text.replace(owner[0], ' ');
   }
 
-  const follow = text.match(/跟進[:：]\s*(\S+)/);
+  const follow = text.match(/(?:follow(?:\s*up)?|跟進)[:：]\s*/i);
   if (follow) {
-    const date = parseDateToken(follow[1], now);
+    const rest = text.slice(follow.index + follow[0].length);
+    const dated = findDate(rest, now);
+    const token = rest.split(/\s+/)[0] || '';
+    const date = dated && dated.index === 0 ? dated.date : parseDateToken(token, now);
     if (date) {
       result.nextFollowUp = date;
-      text = text.replace(follow[0], ' ');
+      const eaten = dated && dated.index === 0 ? dated.raw.length : token.length;
+      text = `${text.slice(0, follow.index)} ${rest.slice(eaten)}`;
     }
   }
 
@@ -139,11 +214,13 @@ export function parseQuick(input, now = new Date()) {
     text = text.replace(category[0], ' ');
   }
 
-  const dateMatch = text.match(DATE_RE);
+  const dateMatch = findDate(text, now);
   let dueDate = null;
+  let tonight = false;
   if (dateMatch) {
-    dueDate = parseDateToken(dateMatch[1], now);
-    if (dueDate) text = text.replace(dateMatch[0], ' ');
+    dueDate = dateMatch.date;
+    tonight = dateMatch.tonight;
+    text = `${text.slice(0, dateMatch.index)} ${text.slice(dateMatch.index + dateMatch.length)}`;
   }
 
   const timeMatch = findTime(text);
@@ -151,6 +228,8 @@ export function parseQuick(input, now = new Date()) {
   if (timeMatch) {
     dueTime = timeMatch.time;
     text = `${text.slice(0, timeMatch.index)} ${text.slice(timeMatch.index + timeMatch.length)}`;
+  } else if (tonight) {
+    dueTime = '20:00';
   }
 
   if (dueDate || dueTime) {
@@ -160,6 +239,6 @@ export function parseQuick(input, now = new Date()) {
   }
 
   result.title = text.replace(/\s+/g, ' ').trim();
-  if (!result.title) result.title = '（未命名）';
+  if (!result.title) result.title = lang === 'en' ? '(Untitled)' : '（未命名）';
   return result;
 }

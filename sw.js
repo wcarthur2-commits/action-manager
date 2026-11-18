@@ -1,5 +1,5 @@
 /* App shell cache. Relative URLs keep scope correct on a subpath such as /action-manager/. */
-const CACHE = 'action-manager-v2';
+const CACHE = 'action-manager-v3';
 const ASSETS = [
   './',
   './index.html',
@@ -16,6 +16,7 @@ const ASSETS = [
   './js/github.js',
   './js/synccore.js',
   './js/defaults.js',
+  './js/i18n.js',
   './js/db.js',
   './js/sync.js',
   './js/dom.js',

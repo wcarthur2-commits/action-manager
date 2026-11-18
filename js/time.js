@@ -65,24 +65,32 @@ export function hkDow(dateStr) {
   return new Date(Date.UTC(y, m - 1, d)).getUTCDay();
 }
 
-export function weekdayLabel(dateStr) {
+const MONTHS_EN = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
+export function weekdayLabel(dateStr, lang = 'zh-Hant') {
   const noon = new Date(hkWallToISO(dateStr, '12:00'));
-  return new Intl.DateTimeFormat('zh-HK', { timeZone: HK, weekday: 'long' }).format(noon);
+  const locale = lang === 'en' ? 'en-HK' : 'zh-HK';
+  return new Intl.DateTimeFormat(locale, { timeZone: HK, weekday: 'long' }).format(noon);
 }
 
-export function shortDate(dateStr, now = new Date()) {
+export function shortDate(dateStr, now = new Date(), lang = 'zh-Hant') {
   const [y, m, d] = dateStr.split('-');
   const thisYear = hkDateString(now).slice(0, 4);
+  if (lang === 'en') {
+    const base = `${Number(d)} ${MONTHS_EN[Number(m) - 1]}`;
+    return y !== thisYear ? `${base} ${y}` : base;
+  }
   const prefix = y !== thisYear ? `${y}年` : '';
   return `${prefix}${Number(m)}月${Number(d)}日`;
 }
 
-export function formatHm(iso) {
+export function formatHm(iso, lang = 'zh-Hant') {
   const p = hkParts(new Date(iso));
   const h = Number(p.hour);
-  const ap = h >= 12 ? '下午' : '上午';
   let h12 = h % 12;
   if (h12 === 0) h12 = 12;
+  if (lang === 'en') return `${h12}:${p.minute} ${h >= 12 ? 'pm' : 'am'}`;
+  const ap = h >= 12 ? '下午' : '上午';
   return `${ap}${h12}:${p.minute}`;
 }
 
@@ -91,24 +99,31 @@ export function hmValue(iso) {
   return `${p.hour}:${p.minute}`;
 }
 
-export function formatSyncTime(ts, now = new Date()) {
-  if (!ts) return '未同步過';
+export function formatSyncTime(ts, now = new Date(), lang = 'zh-Hant') {
+  const en = lang === 'en';
+  if (!ts) return en ? 'Not synced yet' : '未同步過';
   const diff = Math.max(0, now.getTime() - ts);
-  if (diff < 15000) return '剛剛同步';
-  if (diff < 3600000) return `${Math.floor(diff / 60000)} 分鐘前同步`;
-  if (diff < 6 * 3600000) return `${Math.floor(diff / 3600000)} 個鐘前同步`;
+  if (diff < 15000) return en ? 'Just synced' : '剛剛同步';
+  if (diff < 3600000) {
+    const n = Math.floor(diff / 60000);
+    return en ? `Synced ${n} min ago` : `${n} 分鐘前同步`;
+  }
+  if (diff < 6 * 3600000) {
+    const n = Math.floor(diff / 3600000);
+    return en ? `Synced ${n} hr ago` : `${n} 個鐘前同步`;
+  }
   const d = hkDateString(new Date(ts));
-  const t = formatHm(new Date(ts).toISOString());
+  const clock = formatHm(new Date(ts).toISOString(), lang);
   const today = hkDateString(now);
-  if (d === today) return `今日 ${t} 同步`;
-  if (d === addHkDays(today, -1)) return `尋日 ${t} 同步`;
-  return `${shortDate(d, now)} ${t} 同步`;
+  if (d === today) return en ? `Synced today ${clock}` : `今日 ${clock} 同步`;
+  if (d === addHkDays(today, -1)) return en ? `Synced yesterday ${clock}` : `尋日 ${clock} 同步`;
+  return en ? `Synced ${shortDate(d, now, lang)} ${clock}` : `${shortDate(d, now, lang)} ${clock} 同步`;
 }
 
-export function dayNickname(dateStr, todayStr) {
+export function dayNickname(dateStr, todayStr, lang = 'zh-Hant') {
   const diff = diffHkDays(todayStr, dateStr);
-  if (diff === 0) return '今日';
-  if (diff === 1) return '聽日';
-  if (diff === 2) return '後日';
-  return weekdayLabel(dateStr);
+  if (diff === 0) return lang === 'en' ? 'Today' : '今日';
+  if (diff === 1) return lang === 'en' ? 'Tomorrow' : '聽日';
+  if (diff === 2) return lang === 'en' ? 'Day after' : '後日';
+  return weekdayLabel(dateStr, lang);
 }

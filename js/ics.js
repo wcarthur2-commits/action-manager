@@ -1,3 +1,4 @@
+import { t } from './i18n.js';
 import { hkDateString, hkParts } from './time.js';
 
 function icsEscape(value) {
@@ -42,11 +43,11 @@ function addDaysDate(dateStr) {
 
 function descriptionOf(item) {
   const lines = [];
-  if (item.contact) lines.push(`要搵嘅人：${item.contact}`);
-  if (item.owner) lines.push(`負責人：${item.owner}`);
-  if (item.waitingOn) lines.push(`等緊：${item.waitingOn}`);
-  if (item.issue) lines.push(`Issue：${item.issue}`);
-  if (item.solution) lines.push(`解決辦法：${item.solution}`);
+  if (item.contact) lines.push(t('ics.contact', { value: item.contact }));
+  if (item.owner) lines.push(t('ics.owner', { value: item.owner }));
+  if (item.waitingOn) lines.push(t('ics.waiting', { value: item.waitingOn }));
+  if (item.issue) lines.push(t('ics.issue', { value: item.issue }));
+  if (item.solution) lines.push(t('ics.solution', { value: item.solution }));
   if (item.notes) lines.push(item.notes);
   return lines.join('\n');
 }
@@ -83,7 +84,7 @@ export function toIcs(doc, now = new Date()) {
           : plusMinutes(primary, 30);
         events.push(eventBlock(item, {
           uid: `${item.id}@action-manager`,
-          summary: item.title || '（未命名）',
+          summary: item.title || t('untitled'),
           description,
           start: hkStamp(primary),
           end: hkStamp(endIso),
@@ -94,7 +95,7 @@ export function toIcs(doc, now = new Date()) {
         const day = hkDateString(new Date(primary));
         events.push(eventBlock(item, {
           uid: `${item.id}@action-manager`,
-          summary: item.title || '（未命名）',
+          summary: item.title || t('untitled'),
           description,
           start: dateStamp(day),
           end: addDaysDate(day),
@@ -108,7 +109,7 @@ export function toIcs(doc, now = new Date()) {
       if (item.nextFollowUp !== primaryDay) {
         events.push(eventBlock(item, {
           uid: `${item.id}-follow@action-manager`,
-          summary: `跟進：${item.title || '（未命名）'}`,
+          summary: t('ics.follow', { title: item.title || t('untitled') }),
           description,
           start: dateStamp(item.nextFollowUp),
           end: addDaysDate(item.nextFollowUp),
@@ -121,10 +122,10 @@ export function toIcs(doc, now = new Date()) {
   const lines = [
     'BEGIN:VCALENDAR',
     'VERSION:2.0',
-    'PRODID:-//行動 Manager//ZH-HK',
+    'PRODID:-//Action Manager//EN-ZH',
     'CALSCALE:GREGORIAN',
     'METHOD:PUBLISH',
-    'X-WR-CALNAME:行動',
+    `X-WR-CALNAME:${t('ics.calendar')}`,
     'BEGIN:VTIMEZONE',
     'TZID:Asia/Hong_Kong',
     'BEGIN:STANDARD',

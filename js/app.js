@@ -1,7 +1,7 @@
 import { DEFAULT_SYNC } from './defaults.js';
 import * as db from './db.js';
 import { toast } from './dom.js';
-import { ERROR_TEXT } from './errors.js';
+import { applyRecordRename, detectLanguage, errorText, getLang, recordLabel, setLang, t } from './i18n.js';
 import { toIcs } from './ics.js';
 import {
   PALETTE,
@@ -39,8 +39,8 @@ const store = {
   fatal: '',
   sync: { phase: 'idle', error: '', lastSyncedAt: null },
   secrets: {
-    owner: DEFAULT_SYNC.owner,
-    repo: DEFAULT_SYNC.repo,
+    owner: '',
+    repo: '',
     path: DEFAULT_SYNC.path,
     token: '',
     passphrase: '',
@@ -114,10 +114,10 @@ async function saveRecord(kind, rec) {
 async function quickAdd(text) {
   const raw = String(text || '').trim();
   if (!raw) return;
-  const parsed = parseQuick(raw, new Date());
+  const parsed = parseQuick(raw, new Date(), getLang());
   let categoryId = null;
   if (parsed.categoryName) {
-    let category = sortByOrder(store.doc.categories).find((row) => row.name === parsed.categoryName);
+    let category = sortByOrder(store.doc.categories).find((row) => row.name === parsed.categoryName || recordLabel(row, 'category') === parsed.categoryName);
     if (!category) {
       category = {
         id: uid(),
@@ -149,7 +149,7 @@ async function quickAdd(text) {
   sync.schedule();
   const input = document.getElementById('quick-input');
   if (input) input.value = '';
-  toast('已加入');
+  toast(t('toast.added'));
   ui.renderMain();
 }
 
@@ -175,7 +175,7 @@ async function deleteExample(id) {
   markDeleted(item);
   await db.putRecord('items', item);
   sync.schedule();
-  toast('已刪除例子');
+  toast(t('toast.exampleDeleted'));
   ui.renderMain();
 }
 
@@ -186,7 +186,7 @@ async function deleteAllExamples() {
     if (item.deletedAt === now) await db.putRecord('items', item);
   }
   sync.schedule();
-  toast(count ? `已刪除 ${count} 個例子` : '冇例子');
+  toast(count ? t('toast.examplesDeleted', { n: count }) : t('toast.noExamples'));
   ui.renderMain();
 }
 
@@ -199,13 +199,13 @@ async function deleteItem(id) {
   sync.schedule();
   ui.renderSheet();
   ui.renderMain();
-  toast('已刪除');
+  toast(t('toast.deleted'));
 }
 
 async function deleteStatus(id) {
   const live = sortByOrder(store.doc.statuses);
   if (live.length <= 1) {
-    toast('至少留一個狀態');
+    toast(t('toast.needStatus'));
     return;
   }
   const fallback = live.find((status) => status.id !== id);
@@ -271,18 +271,21 @@ async function edit(ds, value, phase, event) {
     const kind = ds.scope === 'status' ? 'statuses' : ds.scope === 'category' ? 'categories' : 'fields';
     const rec = store.doc[kind].find((row) => row.id === ds.id);
     if (!rec) return;
+    const labelKind = ds.scope === 'status' ? 'status' : ds.scope === 'category' ? 'category' : 'field';
     if (ds.bind === 'name' || ds.bind === 'label') {
+      if (phase !== 'blur') return;
       const trimmed = String(value).trim();
-      if (!trimmed) {
-        if (phase === 'blur' && event?.target) event.target.value = rec.name || rec.label;
+      if (!trimmed || !applyRecordRename(rec, trimmed, labelKind)) {
+        if (event?.target) event.target.value = labelKind === 'field' ? (rec.label || '') : (rec.name || '');
+        ui.renderMain();
         return;
       }
-      if (ds.bind === 'name') rec.name = trimmed;
-      else rec.label = trimmed;
-    } else if (ds.bind === 'role') rec.role = value;
-    rec.updatedAt = Date.now();
+    } else if (ds.bind === 'role') {
+      rec.role = value;
+      rec.updatedAt = Date.now();
+    } else return;
     await saveRecord(kind, rec);
-    if (ds.bind === 'role') ui.renderMain();
+    ui.renderMain();
     return;
   }
   const item = findItem(ds.id);
@@ -291,7 +294,7 @@ async function edit(ds, value, phase, event) {
     if (!item.custom) item.custom = {};
     item.custom[ds.field] = value;
   } else if (ds.bind === 'title') {
-    item.title = phase === 'blur' ? (String(value).trim() || '（未命名）') : value;
+    item.title = phase === 'blur' ? (String(value).trim() || t('untitled')) : value;
     if (phase === 'blur' && event?.target) event.target.value = item.title;
   } else if (['contact', 'owner', 'waitingOn', 'issue', 'solution', 'notes'].includes(ds.bind)) {
     item[ds.bind] = value;
@@ -314,6 +317,15 @@ async function edit(ds, value, phase, event) {
 async function onAction(action, ds) {
   if (action === 'noop') return;
   if (action === 'set-view') setView(ds.view);
+  else if (action === 'set-lang') {
+    const lang = setLang(ds.lang);
+    try { localStorage.setItem('am-lang', lang); } catch { /* private mode */ }
+    await db.setMeta('lang', lang);
+    ui.syncChrome();
+    ui.renderMain();
+    ui.renderSheet();
+    ui.renderDialog();
+  }
   else if (action === 'toggle-search') {
     store.searchOpen = !store.searchOpen;
     ui.syncChrome();
@@ -357,9 +369,9 @@ async function onAction(action, ds) {
   } else if (action === 'ask-delete-item') {
     const item = findItem(ds.id);
     store.dialog = {
-      title: '刪除呢項？',
-      body: item ? `「${item.title}」刪除之後，同步會帶到其他裝置。` : '刪除之後，同步會帶到其他裝置。',
-      confirm: '刪除',
+      title: t('dialog.deleteTitle'),
+      body: item ? t('dialog.deleteBody', { title: item.title }) : t('dialog.deleteBodyPlain'),
+      confirm: t('dialog.delete'),
       danger: true,
       action: 'confirm-delete-item',
       id: ds.id,
@@ -429,15 +441,15 @@ async function onAction(action, ds) {
   } else if (action === 'delete-record') {
     if (ds.kind === 'statuses') {
       if (sortByOrder(store.doc.statuses).length <= 1) {
-        toast('至少留一個狀態');
+        toast(t('toast.needStatus'));
         return;
       }
       const using = activeItems(store.doc).filter((item) => item.statusId === ds.id).length;
       if (using) {
         store.dialog = {
-          title: '刪除狀態？',
-          body: `有 ${using} 項用緊呢個狀態。刪除之後會移去另一個狀態。`,
-          confirm: '刪除',
+          title: t('dialog.statusTitle'),
+          body: t('dialog.statusBody', { n: using }),
+          confirm: t('dialog.delete'),
           danger: true,
           action: 'confirm-delete-status',
           id: ds.id,
@@ -475,9 +487,9 @@ async function onAction(action, ds) {
   } else if (action === 'pick-import') {
     if (ds.mode === 'replace') {
       store.dialog = {
-        title: '取代本機資料？',
-        body: '備份入面冇嘅項目會當成刪除，下次同步會帶到其他裝置。',
-        confirm: '揀檔案並取代',
+        title: t('dialog.replaceTitle'),
+        body: t('dialog.replaceBody'),
+        confirm: t('dialog.replaceConfirm'),
         danger: true,
         action: 'confirm-replace',
       };
@@ -493,14 +505,14 @@ async function onAction(action, ds) {
     store.secrets.remember = false;
     store.sync.error = '';
     await sync.saveSecrets();
-    toast('已清除呢部機嘅 token 同密碼');
+    toast(t('toast.secretsCleared'));
     ui.updateSyncChip();
     ui.renderMain();
   } else if (action === 'submit-pass') {
     const input = document.getElementById('pass-input');
     if (input) store.secrets.passphrase = input.value;
     if (!store.secrets.passphrase) {
-      toast(ERROR_TEXT.MISSING_PASSPHRASE);
+      toast(errorText('MISSING_PASSPHRASE'));
       return;
     }
     await sync.saveSecrets();
@@ -544,10 +556,10 @@ function bind() {
       await db.replaceAll(next);
       store.doc = await db.loadDoc();
       sync.schedule();
-      toast(mode === 'replace' ? '已取代本機資料' : '已合併備份');
+      toast(mode === 'replace' ? t('toast.replaced') : t('toast.merged'));
       ui.renderMain();
     } catch (err) {
-      toast(ERROR_TEXT[err.code] || ERROR_TEXT.BAD_BACKUP);
+      toast(errorText(err.code || 'BAD_BACKUP'));
     }
   });
   document.addEventListener('keydown', (event) => {
@@ -604,15 +616,30 @@ function bind() {
   window.addEventListener('hashchange', () => showView(viewFromHash()));
 }
 
+function initialLang() {
+  try {
+    const saved = localStorage.getItem('am-lang');
+    if (saved) return setLang(saved);
+  } catch { /* private mode */ }
+  return setLang(detectLanguage());
+}
+
 async function ensureSeed() {
   if (await db.getMeta('init')) return;
   const doc = await db.loadDoc();
-  if (!doc.items.length && !doc.statuses.length) await db.replaceAll(freshDoc(new Date()));
+  if (!doc.items.length && !doc.statuses.length) await db.replaceAll(freshDoc(new Date(), getLang()));
   await db.setMeta('init', { at: Date.now(), v: 1 });
 }
 
 async function registerSW() {
   if (!('serviceWorker' in navigator)) return;
+  const hadController = !!navigator.serviceWorker.controller;
+  let reloading = false;
+  navigator.serviceWorker.addEventListener('controllerchange', () => {
+    if (!hadController || reloading) return;
+    reloading = true;
+    location.reload();
+  });
   try {
     await navigator.serviceWorker.register('./sw.js', { scope: './', updateViaCache: 'none' });
   } catch {
@@ -621,16 +648,21 @@ async function registerSW() {
 }
 
 async function boot() {
+  initialLang();
   bind();
   ui.decorateChrome();
   showView(viewFromHash());
   if (!db.supported()) {
-    store.fatal = '開唔到本機資料庫。請用 Safari 正常模式，唔好用私人瀏覽。';
+    store.fatal = t('fatal.db');
     ui.renderMain();
     return;
   }
   try {
     await db.open();
+    const storedLang = await db.getMeta('lang');
+    if (storedLang) setLang(storedLang);
+    else await db.setMeta('lang', getLang());
+    try { localStorage.setItem('am-lang', getLang()); } catch { /* private mode */ }
     await ensureSeed();
     store.doc = await db.loadDoc();
     const saved = await db.getMeta('sync');
@@ -665,7 +697,7 @@ async function boot() {
     setInterval(() => ui.updateSyncChip(), 30000);
   } catch (err) {
     console.error(err);
-    store.fatal = '載入資料失敗。請重新打開再試。';
+    store.fatal = t('fatal.load');
     ui.renderMain();
   }
 }

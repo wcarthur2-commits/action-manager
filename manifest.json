@@ -1,9 +1,9 @@
 {
   "id": "./",
-  "name": "行動 Manager",
-  "short_name": "行動",
-  "description": "個人行動指揮板。資料留喺自己部機，可選加密同步去私人 GitHub 倉庫。",
-  "lang": "zh-Hant",
+  "name": "Action Manager / 行動",
+  "short_name": "Action",
+  "description": "Personal action board. Data stays on device. Optional encrypted sync to a private GitHub repo. 個人行動指揮板。",
+  "lang": "en",
   "dir": "ltr",
   "start_url": "./",
   "scope": "./",

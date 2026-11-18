@@ -1,5 +1,6 @@
 import { DEFAULT_SYNC } from './defaults.js';
 import { el, icon, nextFrame } from './dom.js';
+import { getLang, recordLabel, t } from './i18n.js';
 import {
   PALETTE,
   activeItems,
@@ -21,6 +22,28 @@ import {
   waitingDays,
 } from './model.js';
 import { addHkDays, dayNickname, formatHm, formatSyncTime, hkDateString, hmValue, shortDate, weekdayLabel } from './time.js';
+
+function L() {
+  return getLang();
+}
+
+function statusText(status) {
+  if (!status) return '';
+  if (!status.id && status.builtinKey === 'none') return t('status.none');
+  return recordLabel(status, 'status');
+}
+
+function categoryText(category) {
+  return category ? recordLabel(category, 'category') : '';
+}
+
+function fieldText(field) {
+  return field ? recordLabel(field, 'field') : '';
+}
+
+function countText(n, oneKey, manyKey) {
+  return n === 1 && L() === 'en' ? t(oneKey) : t(manyKey, { n });
+}
 
 let store;
 
@@ -46,20 +69,23 @@ export function updateSyncChip() {
   const phase = store.sync.phase || 'idle';
   chip.dataset.phase = phase;
   const text = {
-    syncing: '同步緊…',
-    error: '同步失敗',
-    offline: '離線',
-    'need-pass': '未有密碼',
-    ok: formatSyncTime(store.sync.lastSyncedAt),
-    idle: store.sync.lastSyncedAt ? formatSyncTime(store.sync.lastSyncedAt) : '未同步',
-  }[phase] || '未同步';
+    syncing: t('sync.syncing'),
+    error: t('sync.error'),
+    offline: t('sync.offline'),
+    'need-pass': t('sync.needPass'),
+    ok: formatSyncTime(store.sync.lastSyncedAt, new Date(), L()),
+    idle: store.sync.lastSyncedAt ? formatSyncTime(store.sync.lastSyncedAt, new Date(), L()) : t('sync.idle'),
+  }[phase] || t('sync.idle');
   label.textContent = text;
-  chip.title = store.sync.error ? `${text}。${store.sync.error}` : text;
+  chip.title = store.sync.error ? `${text} — ${store.sync.error}` : text;
 }
 
 export function syncChrome() {
-  const titles = { today: '今日', board: '看板', agenda: '行程', people: '人物', settings: '設定' };
-  document.title = `${titles[store.view] || '行動'} · 行動`;
+  for (const node of document.querySelectorAll('[data-i18n]')) node.textContent = t(node.dataset.i18n);
+  for (const node of document.querySelectorAll('[data-i18n-placeholder]')) node.placeholder = t(node.dataset.i18nPlaceholder);
+  for (const node of document.querySelectorAll('[data-i18n-label]')) node.setAttribute('aria-label', t(node.dataset.i18nLabel));
+  const titles = { today: t('nav.today'), board: t('nav.board'), agenda: t('nav.agenda'), people: t('nav.people'), settings: t('nav.settings') };
+  document.title = `${titles[store.view] || t('appTitle')} · ${t('appTitle')}`;
   for (const button of document.querySelectorAll('.nav-btn')) {
     if (button.dataset.view === store.view) button.setAttribute('aria-current', 'page');
     else button.removeAttribute('aria-current');
@@ -77,7 +103,7 @@ export function syncChrome() {
   if (quick) quick.hidden = store.view === 'settings';
   const filtering = !!(store.filters.statusId || store.filters.categoryId || store.filters.person || store.filters.owner || store.filters.overdue);
   const filterBtn = document.getElementById('filter-btn');
-  if (filterBtn) filterBtn.textContent = filtering ? '篩選中' : '篩選';
+  if (filterBtn) filterBtn.textContent = filtering ? t('filtering') : t('filter');
   updateSyncChip();
 }
 
@@ -121,7 +147,7 @@ export function renderDialog() {
       el('h2', {}, dialog.title),
       el('p', {}, dialog.body),
       el('div', { class: 'dialog-actions' },
-        el('button', { class: 'btn', dataset: { action: 'close-dialog' } }, '取消'),
+        el('button', { class: 'btn', dataset: { action: 'close-dialog' } }, t('cancel')),
         el('button', { class: dialog.danger ? 'btn danger' : 'btn primary', dataset: { action: 'confirm-dialog' } }, dialog.confirm),
       ),
     )));
@@ -129,7 +155,7 @@ export function renderDialog() {
 
 function renderView() {
   if (store.fatal) return el('p', { class: 'empty', 'data-screen': 'error' }, store.fatal);
-  if (!store.doc) return el('p', { class: 'loading', 'data-screen': 'loading' }, '載入緊…');
+  if (!store.doc) return el('p', { class: 'loading', 'data-screen': 'loading' }, t('loading'));
   const now = new Date();
   const screen = {
     today: () => renderToday(now),
@@ -144,8 +170,8 @@ function renderView() {
 function filterNote() {
   if (!filtersActive(store.filters)) return null;
   return el('div', { class: 'filters-note' },
-    el('span', {}, '篩選緊'),
-    el('button', { class: 'btn tiny', dataset: { action: 'clear-filters' } }, '清除'),
+    el('span', {}, t('filter.on')),
+    el('button', { class: 'btn tiny', dataset: { action: 'clear-filters' } }, t('clear')),
   );
 }
 
@@ -155,36 +181,34 @@ function renderToday(now) {
   const examples = countExamples(store.doc);
   const nodes = [
     el('p', { class: 'hero-date' }, parts.date),
-    el('p', { class: 'hero-sub' }, `${parts.week} · ${data.openCount} 項未完成`),
+    el('p', { class: 'hero-sub' }, `${parts.week} · ${t('openCount', { n: data.openCount })}`),
   ];
   if (examples) {
     nodes.push(el('div', { class: 'banner' },
-      el('p', {}, `有 ${examples} 項標咗「例子」，可以即刻刪。`),
-      el('button', { class: 'btn tiny', dataset: { action: 'delete-all-examples' } }, '刪除全部例子'),
+      el('p', {}, t('exampleBanner', { n: examples })),
+      el('button', { class: 'btn tiny', dataset: { action: 'delete-all-examples' } }, t('deleteAllExamples')),
     ));
   }
   nodes.push(filterNote());
-  nodes.push(section('過咗期', data.overdue, (item) => card(item, { now })));
-  nodes.push(section('今日到期', data.dueToday, (item) => card(item, { now })));
-  nodes.push(section('要跟進', data.followUps, (item) => card(item, { now, follow: true })));
+  nodes.push(section(t('section.overdue'), data.overdue, (item) => card(item, { now })));
+  nodes.push(section(t('section.dueToday'), data.dueToday, (item) => card(item, { now })));
+  nodes.push(section(t('section.follow'), data.followUps, (item) => card(item, { now, follow: true })));
   nodes.push(el('div', { class: 'section-h' },
-    el('h2', {}, '邊個拖緊'),
+    el('h2', {}, t('section.waiting')),
     el('span', { class: 'count' }, String(data.waiting.reduce((sum, group) => sum + group.items.length, 0))),
   ));
-  if (!data.waiting.length) nodes.push(el('p', { class: 'empty' }, '而家冇人拖緊你。'));
+  if (!data.waiting.length) nodes.push(el('p', { class: 'empty' }, t('empty.nobodyWaiting')));
   for (const group of data.waiting) {
     nodes.push(el('div', { class: 'person-h' },
-      el('strong', {}, group.name),
-      el('span', { class: 'muted' }, group.maxDays > 0 ? `最長拖咗 ${group.maxDays} 日` : '今日先開始等'),
+      el('strong', {}, group.name || t('waiting.unknown')),
+      el('span', { class: 'muted' }, group.maxDays > 0 ? t('waiting.max', { n: group.maxDays }) : t('waiting.started')),
     ));
     for (const row of group.items) nodes.push(card(row.item, { now, waitingDays: row.days, showWaiting: true }));
   }
   const any = data.overdue.length || data.dueToday.length || data.followUps.length || data.waiting.length;
   if (!any) {
-    nodes.push(el('p', { class: 'empty' }, data.openCount
-      ? '未有到期或者要跟進嘅項目。'
-      : '未有行動。喺上面加一項，例如：追報價 @陳生 #客戶 聽日 3pm'));
-    if (data.openCount) nodes.push(el('button', { class: 'btn', dataset: { action: 'set-view', view: 'board' } }, '去看板睇全部'));
+    nodes.push(el('p', { class: 'empty' }, data.openCount ? t('empty.noDue') : t('empty.noItems')));
+    if (data.openCount) nodes.push(el('button', { class: 'btn', dataset: { action: 'set-view', view: 'board' } }, t('goBoard')));
   }
   return el('div', { 'data-screen': 'today' }, nodes);
 }
@@ -192,7 +216,7 @@ function renderToday(now) {
 function section(title, items, renderItem) {
   return [
     el('div', { class: 'section-h' }, el('h2', {}, title), el('span', { class: 'count' }, String(items.length))),
-    items.length ? items.map(renderItem) : el('p', { class: 'empty' }, '冇'),
+    items.length ? items.map(renderItem) : el('p', { class: 'empty' }, t('empty.none')),
   ];
 }
 
@@ -207,11 +231,11 @@ function renderBoard(now) {
     },
     el('div', { class: 'column-h' },
       el('i', { class: 'cdot', style: { '--c': column.status.color || '#8a8175' } }),
-      el('span', {}, column.status.name),
+      el('span', {}, statusText(column.status)),
       el('span', { class: 'count' }, String(column.items.length)),
     ),
     column.items.map((item) => card(item, { now, showWaiting: true })),
-    column.items.length ? null : el('p', { class: 'empty' }, '冇項目'),
+    column.items.length ? null : el('p', { class: 'empty' }, t('empty.column')),
     ))),
   );
 }
@@ -220,33 +244,33 @@ function renderAgenda(now) {
   const data = agenda(store.doc, store.filters, now);
   const blocks = [filterNote()];
   if (data.overdue.length) {
-    blocks.push(el('div', { class: 'section-h' }, el('h2', {}, '未完成（過咗期）'), el('span', { class: 'count' }, String(data.overdue.length))));
+    blocks.push(el('div', { class: 'section-h' }, el('h2', {}, t('section.overdueAgenda')), el('span', { class: 'count' }, String(data.overdue.length))));
     for (const item of data.overdue) blocks.push(card(item, { now }));
   }
   for (const day of data.days) {
     blocks.push(el('section', { class: 'day' },
       el('div', { class: 'day-h' },
-        el('strong', {}, `${shortDate(day.date, now)} ${dayNickname(day.date, data.today)}`),
-        el('span', { class: 'muted' }, weekdayLabel(day.date)),
+        el('strong', {}, `${shortDate(day.date, now, L())} ${dayNickname(day.date, data.today, L())}`),
+        el('span', { class: 'muted' }, weekdayLabel(day.date, L())),
       ),
-      day.entries.length ? day.entries.map((entry) => agendaEntry(entry, now)) : el('p', { class: 'slim' }, '冇安排'),
+      day.entries.length ? day.entries.map((entry) => agendaEntry(entry, now)) : el('p', { class: 'slim' }, t('empty.day')),
     ));
   }
   if (data.undated.length) {
-    blocks.push(el('div', { class: 'section-h' }, el('h2', {}, '未有時間'), el('span', { class: 'count' }, String(data.undated.length))));
+    blocks.push(el('div', { class: 'section-h' }, el('h2', {}, t('section.undated')), el('span', { class: 'count' }, String(data.undated.length))));
     for (const item of data.undated) blocks.push(card(item, { now }));
   }
   return el('div', { 'data-screen': 'agenda' }, blocks);
 }
 
 function agendaEntry(entry, now) {
-  let when = '時間未定';
-  if (entry.kind === 'follow') when = '跟進';
-  else if (entry.timeSet && entry.at) when = formatHm(entry.at);
+  let when = t('time.unset');
+  if (entry.kind === 'follow') when = t('follow.short');
+  else if (entry.timeSet && entry.at) when = formatHm(entry.at, L());
   return el('div', { class: 'entry' },
     el('span', { class: 'time' }, when),
     el('button', { class: 'entry-main', dataset: { action: 'open-item', id: entry.item.id } },
-      el('div', { class: 'card-title' }, entry.item.title || '（未命名）'),
+      el('div', { class: 'card-title' }, entry.item.title || t('untitled')),
       metaLine(entry.item, now),
     ),
   );
@@ -257,16 +281,16 @@ function renderPeople(now) {
   return el('div', { 'data-screen': 'people' },
     filterNote(),
     el('div', { class: 'segment', role: 'tablist' },
-      el('button', { dataset: { action: 'people-mode', mode: 'contact' }, 'aria-selected': store.peopleMode === 'contact' ? 'true' : 'false' }, '要搵嘅人'),
-      el('button', { dataset: { action: 'people-mode', mode: 'owner' }, 'aria-selected': store.peopleMode === 'owner' ? 'true' : 'false' }, '負責人'),
+      el('button', { dataset: { action: 'people-mode', mode: 'contact' }, 'aria-selected': store.peopleMode === 'contact' ? 'true' : 'false' }, t('people.contact')),
+      el('button', { dataset: { action: 'people-mode', mode: 'owner' }, 'aria-selected': store.peopleMode === 'owner' ? 'true' : 'false' }, t('people.owner')),
     ),
     groups.length ? groups.map((group) => el('section', {},
       el('div', { class: 'person-h' },
-        el('strong', {}, group.name),
-        el('span', { class: 'muted' }, group.waitingCount ? `${group.count} 項 · 拖緊 ${group.waitingCount}` : `${group.count} 項`),
+        el('strong', {}, group.name || (store.peopleMode === 'owner' ? t('people.unknownOwner') : t('people.unknownContact'))),
+        el('span', { class: 'muted' }, group.waitingCount ? t('people.waiting', { n: group.count, w: group.waitingCount }) : t('people.count', { n: group.count })),
       ),
       group.items.map((item) => card(item, { now, showWaiting: true })),
-    )) : el('p', { class: 'empty' }, '未有人。'),
+    )) : el('p', { class: 'empty' }, t('people.empty')),
   );
 }
 
@@ -282,30 +306,30 @@ function card(item, { now, waitingDays: days = null, showWaiting = false, follow
   },
   el('button', { class: 'card-main', dataset: { action: 'open-item', id: item.id } },
     el('div', { class: 'card-titleline' },
-      item.isExample ? el('span', { class: 'ex-badge' }, '例子') : null,
-      el('span', { class: 'card-title' }, item.title || '（未命名）'),
+      item.isExample ? el('span', { class: 'ex-badge' }, t('example')) : null,
+      el('span', { class: 'card-title' }, item.title || t('untitled')),
     ),
     metaLine(item, now, { days, showWaiting, follow }),
     showWaiting && status?.role === 'waiting' && item.waitingOn ? el('p', { class: 'wait-note' }, item.waitingOn) : null,
   ),
   el('div', { class: 'card-side' },
-    el('button', { class: 'btn tiny', dataset: { action: 'move-item', id: item.id } }, '移動'),
-    item.isExample ? el('button', { class: 'icon-btn', dataset: { action: 'delete-example', id: item.id }, 'aria-label': '刪除例子' }, icon('trash')) : null,
+    el('button', { class: 'btn tiny', dataset: { action: 'move-item', id: item.id } }, t('move')),
+    item.isExample ? el('button', { class: 'icon-btn', dataset: { action: 'delete-example', id: item.id }, 'aria-label': t('deleteExample') }, icon('trash')) : null,
   ));
 }
 
 function metaLine(item, now, extra = {}) {
   const category = categoryById(store.doc, item.categoryId);
   const bits = [];
-  if (category) bits.push(el('span', { class: 'pill' }, category.name));
+  if (category) bits.push(el('span', { class: 'pill' }, categoryText(category)));
   if (normText(item.contact)) bits.push(el('span', { class: 'pill' }, `@${normText(item.contact)}`));
   const due = dueChip(item, now);
   if (due) bits.push(due);
   if (extra.follow && item.nextFollowUp) {
     const late = item.nextFollowUp < hkDateString(now);
-    bits.push(el('span', { class: late ? 'pill late' : 'pill' }, late ? '跟進遲咗' : '今日要跟'));
+    bits.push(el('span', { class: late ? 'pill late' : 'pill' }, late ? t('follow.late') : t('follow.today')));
   }
-  if (extra.days != null) bits.push(el('span', { class: 'pill' }, extra.days > 0 ? `拖咗 ${extra.days} 日` : '今日先開始等'));
+  if (extra.days != null) bits.push(el('span', { class: 'pill' }, extra.days > 0 ? countText(extra.days, 'waiting.one', 'waiting.days') : t('waiting.today')));
   if (!bits.length) return null;
   return el('div', { class: 'meta' }, bits);
 }
@@ -314,86 +338,94 @@ function dueChip(item, now) {
   if (!item.dueAt || isDone(store.doc, item)) return null;
   if (isOverdue(item, store.doc, now)) {
     const days = overdueDays(item, now);
-    return el('span', { class: 'pill late' }, days > 0 ? `遲咗 ${days} 日` : '已過時');
+    return el('span', { class: 'pill late' }, days > 0 ? countText(days, 'overdue.one', 'overdue.days') : t('overdue.now'));
   }
   const day = hkDateString(new Date(item.dueAt));
   const today = hkDateString(now);
-  const when = day === today ? '今日' : day === addHkDays(today, 1) ? '聽日' : shortDate(day, now);
-  const time = item.dueTimeSet ? formatHm(item.dueAt) : '';
+  const when = day === today ? t('today') : day === addHkDays(today, 1) ? t('tomorrow') : shortDate(day, now, L());
+  const time = item.dueTimeSet ? formatHm(item.dueAt, L()) : '';
   return el('span', { class: 'pill' }, time ? `${when} ${time}` : when);
 }
 
 function renderSettings(now) {
   const syncError = store.sync.error ? el('p', { class: 'lead', style: { color: 'var(--danger)' } }, store.sync.error) : null;
   return el('div', { 'data-screen': 'settings' },
+    el('section', { class: 'set-card', id: 'lang-card' },
+      el('h2', {}, t('lang.title')),
+      el('p', { class: 'lead' }, t('lang.lead')),
+      el('div', { class: 'segment', role: 'group', 'aria-label': t('lang.title') },
+        el('button', { dataset: { action: 'set-lang', lang: 'zh-Hant' }, 'aria-selected': L() === 'zh-Hant' ? 'true' : 'false' }, t('lang.zh')),
+        el('button', { dataset: { action: 'set-lang', lang: 'en' }, 'aria-selected': L() === 'en' ? 'true' : 'false' }, t('lang.en')),
+      ),
+    ),
     el('section', { class: 'set-card', id: 'sync-card' },
-      el('h2', {}, '同步'),
-      el('p', { class: 'lead' }, '預設私人倉庫可以改。Token 同密碼只留喺呢部機。GitHub 只會見到加密檔。空倉庫第一次同步會自動建立檔案。'),
-      kv('用戶名', el('input', fieldProps('sync-owner', 'owner', store.secrets.owner, 'wcarthur2-commits'))),
-      kv('倉庫', el('input', fieldProps('sync-repo', 'repo', store.secrets.repo, 'Action-data'))),
-      kv('路徑', el('input', fieldProps('sync-path', 'path', store.secrets.path, DEFAULT_SYNC.path))),
-      kv('Token', el('input', { ...fieldProps('sync-token', 'token', store.secrets.token, 'github_pat_…'), type: 'password', autocomplete: 'off' })),
-      kv('密碼', el('input', { ...fieldProps('sync-pass', 'passphrase', store.secrets.passphrase, '同步密碼'), type: 'password', autocomplete: 'new-password' })),
+      el('h2', {}, t('sync.title')),
+      el('p', { class: 'lead' }, t('sync.lead')),
+      kv(t('sync.owner'), el('input', fieldProps('sync-owner', 'owner', store.secrets.owner, t('sync.ownerPh')))),
+      kv(t('sync.repo'), el('input', fieldProps('sync-repo', 'repo', store.secrets.repo, t('sync.repoPh')))),
+      kv(t('sync.path'), el('input', fieldProps('sync-path', 'path', store.secrets.path, DEFAULT_SYNC.path))),
+      kv(t('sync.token'), el('input', { ...fieldProps('sync-token', 'token', store.secrets.token, 'github_pat_…'), type: 'password', autocomplete: 'off' })),
+      kv(t('sync.pass'), el('input', { ...fieldProps('sync-pass', 'passphrase', store.secrets.passphrase, t('sync.passPh')), type: 'password', autocomplete: 'new-password' })),
       el('label', { class: 'checkline' },
         el('input', { type: 'checkbox', dataset: { scope: 'sync', bind: 'remember' }, checked: !!store.secrets.remember }),
-        '喺呢部機記住密碼',
+        t('sync.remember'),
       ),
-      el('p', { class: 'muted' }, store.sync.lastSyncedAt ? formatSyncTime(store.sync.lastSyncedAt, now) : '未同步過'),
+      el('p', { class: 'muted' }, store.sync.lastSyncedAt ? formatSyncTime(store.sync.lastSyncedAt, now, L()) : t('sync.never')),
       syncError,
       el('div', { class: 'actions-row' },
-        el('button', { class: 'btn primary', dataset: { action: 'sync' } }, '而家同步'),
-        el('button', { class: 'btn', dataset: { action: 'clear-secrets' } }, '清除 token 同密碼'),
+        el('button', { class: 'btn primary', dataset: { action: 'sync' } }, t('sync.now')),
+        el('button', { class: 'btn', dataset: { action: 'clear-secrets' } }, t('sync.clear')),
       ),
     ),
     el('section', { class: 'set-card' },
-      el('h2', {}, '狀態'),
-      el('p', { class: 'lead' }, '「等緊人」會計入「邊個拖緊」；「完成」唔會計過期。'),
+      el('h2', {}, t('status.title')),
+      el('p', { class: 'lead' }, t('status.lead')),
       sortByOrder(store.doc.statuses).map((status, index, list) => recordRow('statuses', status, index, list.length, true)),
       el('div', { class: 'actions-row' },
-        el('input', { id: 'new-status', type: 'text', placeholder: '新狀態', 'aria-label': '新狀態' }),
-        el('button', { class: 'btn', dataset: { action: 'add-status' } }, '加狀態'),
+        el('input', { id: 'new-status', type: 'text', placeholder: t('status.new'), 'aria-label': t('status.new') }),
+        el('button', { class: 'btn', dataset: { action: 'add-status' } }, t('status.add')),
       ),
     ),
     el('section', { class: 'set-card' },
-      el('h2', {}, '分類'),
+      el('h2', {}, t('category.title')),
       sortByOrder(store.doc.categories).map((category, index, list) => recordRow('categories', category, index, list.length, false)),
       el('div', { class: 'actions-row' },
-        el('input', { id: 'new-category', type: 'text', placeholder: '新分類', 'aria-label': '新分類' }),
-        el('button', { class: 'btn', dataset: { action: 'add-category' } }, '加分類'),
+        el('input', { id: 'new-category', type: 'text', placeholder: t('category.new'), 'aria-label': t('category.new') }),
+        el('button', { class: 'btn', dataset: { action: 'add-category' } }, t('category.add')),
       ),
     ),
     el('section', { class: 'set-card' },
-      el('h2', {}, '欄位'),
-      el('p', { class: 'lead' }, '隱藏之後，新增同編輯唔會見到呢欄；卡片仍然顯示已有內容。'),
+      el('h2', {}, t('field.title')),
+      el('p', { class: 'lead' }, t('field.lead')),
       sortByOrder(store.doc.fields).filter((field) => field.hideable || !field.builtin).map((field, index, list) => fieldRow(field, index, list.length)),
       el('div', { class: 'actions-row' },
-        el('input', { id: 'new-field', type: 'text', placeholder: '自訂欄位名', 'aria-label': '自訂欄位名' }),
-        el('select', { id: 'new-field-type', 'aria-label': '欄位類型' },
-          el('option', { value: 'text' }, '文字'),
-          el('option', { value: 'date' }, '日期'),
+        el('input', { id: 'new-field', type: 'text', placeholder: t('field.new'), 'aria-label': t('field.new') }),
+        el('select', { id: 'new-field-type', 'aria-label': t('field.type') },
+          el('option', { value: 'text' }, t('field.text')),
+          el('option', { value: 'date' }, t('field.date')),
         ),
-        el('button', { class: 'btn', dataset: { action: 'add-field' } }, '加欄位'),
+        el('button', { class: 'btn', dataset: { action: 'add-field' } }, t('field.add')),
       ),
     ),
     el('section', { class: 'set-card' },
-      el('h2', {}, '備份'),
-      el('p', { class: 'lead' }, '匯出係明文，請自己保管。日曆檔只會下載，唔會上傳。'),
+      el('h2', {}, t('backup.title')),
+      el('p', { class: 'lead' }, t('backup.lead')),
       el('div', { class: 'actions-row' },
-        el('button', { class: 'btn', dataset: { action: 'export-json' } }, '匯出備份'),
-        el('button', { class: 'btn', dataset: { action: 'pick-import', mode: 'merge' } }, '匯入並合併'),
-        el('button', { class: 'btn danger', dataset: { action: 'pick-import', mode: 'replace' } }, '匯入並取代'),
-        el('button', { class: 'btn', dataset: { action: 'export-ics' } }, '匯出日曆'),
+        el('button', { class: 'btn', dataset: { action: 'export-json' } }, t('backup.export')),
+        el('button', { class: 'btn', dataset: { action: 'pick-import', mode: 'merge' } }, t('backup.merge')),
+        el('button', { class: 'btn danger', dataset: { action: 'pick-import', mode: 'replace' } }, t('backup.replace')),
+        el('button', { class: 'btn', dataset: { action: 'export-ics' } }, t('backup.ics')),
       ),
     ),
     countExamples(store.doc) ? el('section', { class: 'set-card' },
-      el('h2', {}, '例子'),
-      el('button', { class: 'btn danger', dataset: { action: 'delete-all-examples' } }, '刪除全部例子'),
+      el('h2', {}, t('examples.title')),
+      el('button', { class: 'btn danger', dataset: { action: 'delete-all-examples' } }, t('deleteAllExamples')),
     ) : null,
     el('section', { class: 'set-card' },
-      el('h2', {}, '點用'),
-      el('p', { class: 'lead' }, '快速新增：@人、#分類、負責:名、今日／聽日／後日、下週一、11月20日、20/11、3pm、下午3點、跟進:聽日。'),
-      el('p', { class: 'lead' }, '用 Safari 打開之後，分享 → 加入主畫面。iPad 同樣。Mac 可以用「加入程式塢」。'),
-      el('p', { class: 'muted' }, '版本 1.0 · 同步只會聯絡 api.github.com'),
+      el('h2', {}, t('help.title')),
+      el('p', { class: 'lead' }, t('help.quick')),
+      el('p', { class: 'lead' }, t('help.install')),
+      el('p', { class: 'muted' }, t('help.version')),
     ),
   );
 }
@@ -423,28 +455,28 @@ function recordRow(kind, rec, index, total, withRole) {
       class: 'grow',
       id: `name-${kind}-${rec.id}`,
       type: 'text',
-      value: rec.name,
-      'aria-label': `${rec.name} 名稱`,
+      value: kind === 'statuses' ? statusText(rec) : categoryText(rec),
+      'aria-label': t('nameLabel', { name: kind === 'statuses' ? statusText(rec) : categoryText(rec) }),
       dataset: { scope: kind === 'statuses' ? 'status' : 'category', bind: 'name', id: rec.id, prev: rec.name },
     }),
     withRole ? el('select', {
-      'aria-label': `${rec.name} 角色`,
+      'aria-label': t('roleLabel', { name: statusText(rec) }),
       dataset: { scope: 'status', bind: 'role', id: rec.id },
       value: rec.role || 'open',
     },
-    el('option', { value: 'open' }, '一般'),
-    el('option', { value: 'waiting' }, '等緊人'),
-    el('option', { value: 'done' }, '完成'),
+    el('option', { value: 'open' }, t('role.open')),
+    el('option', { value: 'waiting' }, t('role.waiting')),
+    el('option', { value: 'done' }, t('role.done')),
     ) : null,
     el('button', {
       class: 'color-btn',
       style: { '--c': rec.color },
-      'aria-label': `揀顏色 ${rec.name}`,
+      'aria-label': t('pickColor', { name: kind === 'statuses' ? statusText(rec) : categoryText(rec) }),
       dataset: { action: 'toggle-color', kind, id: rec.id },
     }),
-    el('button', { class: 'icon-btn', 'aria-label': '上移', disabled: index === 0, dataset: { action: 'swap', kind, id: rec.id, dir: '-1' } }, icon('up')),
-    el('button', { class: 'icon-btn', 'aria-label': '下移', disabled: index === total - 1, dataset: { action: 'swap', kind, id: rec.id, dir: '1' } }, icon('down')),
-    el('button', { class: 'icon-btn', 'aria-label': `刪除 ${rec.name}`, dataset: { action: 'delete-record', kind, id: rec.id } }, icon('trash')),
+    el('button', { class: 'icon-btn', 'aria-label': t('moveUp'), disabled: index === 0, dataset: { action: 'swap', kind, id: rec.id, dir: '-1' } }, icon('up')),
+    el('button', { class: 'icon-btn', 'aria-label': t('moveDown'), disabled: index === total - 1, dataset: { action: 'swap', kind, id: rec.id, dir: '1' } }, icon('down')),
+    el('button', { class: 'icon-btn', 'aria-label': t('deleteNamed', { name: kind === 'statuses' ? statusText(rec) : categoryText(rec) }), dataset: { action: 'delete-record', kind, id: rec.id } }, icon('trash')),
     open ? el('div', { class: 'swatches' }, PALETTE.map((color) => el('button', {
       class: 'swatch',
       style: { background: color },
@@ -461,18 +493,18 @@ function fieldRow(field, index, total) {
       class: 'grow',
       id: `field-${field.id}`,
       type: 'text',
-      value: field.label,
-      'aria-label': `${field.label} 欄位名`,
+      value: fieldText(field),
+      'aria-label': t('fieldName', { name: fieldText(field) }),
       dataset: { scope: 'field', bind: 'label', id: field.id },
     }),
-    el('span', { class: 'pill' }, field.type === 'date' ? '日期' : field.type === 'textarea' ? '長文' : field.type === 'datetime' ? '時間' : '文字'),
+    el('span', { class: 'pill' }, field.type === 'date' ? t('field.date') : field.type === 'textarea' ? t('field.long') : field.type === 'datetime' ? t('field.time') : t('field.text')),
     field.hideable ? el('button', {
       class: 'btn tiny',
       dataset: { action: 'toggle-visible', id: field.id },
-    }, field.visible ? '顯示中' : '已隱藏') : null,
-    el('button', { class: 'icon-btn', 'aria-label': '上移', disabled: index === 0, dataset: { action: 'swap', kind: 'fields', id: field.id, dir: '-1' } }, icon('up')),
-    el('button', { class: 'icon-btn', 'aria-label': '下移', disabled: index === total - 1, dataset: { action: 'swap', kind: 'fields', id: field.id, dir: '1' } }, icon('down')),
-    field.builtin ? null : el('button', { class: 'icon-btn', 'aria-label': `刪除 ${field.label}`, dataset: { action: 'delete-record', kind: 'fields', id: field.id } }, icon('trash')),
+    }, field.visible ? t('field.visible') : t('field.hidden')) : null,
+    el('button', { class: 'icon-btn', 'aria-label': t('moveUp'), disabled: index === 0, dataset: { action: 'swap', kind: 'fields', id: field.id, dir: '-1' } }, icon('up')),
+    el('button', { class: 'icon-btn', 'aria-label': t('moveDown'), disabled: index === total - 1, dataset: { action: 'swap', kind: 'fields', id: field.id, dir: '1' } }, icon('down')),
+    field.builtin ? null : el('button', { class: 'icon-btn', 'aria-label': t('deleteNamed', { name: fieldText(field) }), dataset: { action: 'delete-record', kind: 'fields', id: field.id } }, icon('trash')),
   );
 }
 
@@ -490,7 +522,7 @@ function shell(title, ...body) {
       el('div', { class: 'handle', 'aria-hidden': 'true' }),
       el('div', { class: 'sheet-h' },
         el('h2', {}, title),
-        el('button', { class: 'btn', dataset: { action: 'close-sheet' } }, '完成'),
+        el('button', { class: 'btn', dataset: { action: 'close-sheet' } }, t('close')),
       ),
       ...body,
     ));
@@ -500,35 +532,35 @@ function filterSheet() {
   const options = peopleOptions(store.doc);
   const statuses = sortByOrder(store.doc.statuses);
   const categories = sortByOrder(store.doc.categories);
-  return shell('篩選',
-    labeled('狀態', el('select', { dataset: { scope: 'filter', bind: 'statusId' }, value: store.filters.statusId },
-      el('option', { value: '' }, '全部'),
-      statuses.map((status) => el('option', { value: status.id }, status.name)),
+  return shell(t('filter.title'),
+    labeled(t('status'), el('select', { dataset: { scope: 'filter', bind: 'statusId' }, value: store.filters.statusId },
+      el('option', { value: '' }, t('all')),
+      statuses.map((status) => el('option', { value: status.id }, statusText(status))),
     )),
-    labeled('分類', el('select', { dataset: { scope: 'filter', bind: 'categoryId' }, value: store.filters.categoryId },
-      el('option', { value: '' }, '全部'),
-      categories.map((category) => el('option', { value: category.id }, category.name)),
+    labeled(t('category'), el('select', { dataset: { scope: 'filter', bind: 'categoryId' }, value: store.filters.categoryId },
+      el('option', { value: '' }, t('all')),
+      categories.map((category) => el('option', { value: category.id }, categoryText(category))),
     )),
-    labeled('要搵嘅人', el('select', { dataset: { scope: 'filter', bind: 'person' }, value: store.filters.person },
-      el('option', { value: '' }, '全部'),
+    labeled(t('people.contact'), el('select', { dataset: { scope: 'filter', bind: 'person' }, value: store.filters.person },
+      el('option', { value: '' }, t('all')),
       options.contacts.map((name) => el('option', { value: name }, name)),
     )),
-    labeled('負責人', el('select', { dataset: { scope: 'filter', bind: 'owner' }, value: store.filters.owner },
-      el('option', { value: '' }, '全部'),
+    labeled(t('people.owner'), el('select', { dataset: { scope: 'filter', bind: 'owner' }, value: store.filters.owner },
+      el('option', { value: '' }, t('all')),
       options.owners.map((name) => el('option', { value: name }, name)),
     )),
     el('label', { class: 'checkline' },
       el('input', { type: 'checkbox', dataset: { scope: 'filter', bind: 'overdue' }, checked: !!store.filters.overdue }),
-      '只顯示過期',
+      t('overdueOnly'),
     ),
-    el('button', { class: 'btn wide', dataset: { action: 'clear-filters' } }, '清除篩選'),
+    el('button', { class: 'btn wide', dataset: { action: 'clear-filters' } }, t('clearFilters')),
   );
 }
 
 function passSheet() {
-  return shell('輸入同步密碼',
-    el('p', { class: 'lead' }, '三部機用同一個密碼。GitHub 收唔到呢個密碼。'),
-    labeled('同步密碼', el('input', {
+  return shell(t('pass.title'),
+    el('p', { class: 'lead' }, t('pass.lead')),
+    labeled(t('sync.pass'), el('input', {
       id: 'pass-input',
       type: 'password',
       value: '',
@@ -538,22 +570,22 @@ function passSheet() {
     })),
     el('label', { class: 'checkline' },
       el('input', { type: 'checkbox', dataset: { scope: 'sync', bind: 'remember' }, checked: !!store.secrets.remember }),
-      '喺呢部機記住密碼',
+      t('sync.remember'),
     ),
-    el('button', { class: 'btn primary wide', dataset: { action: 'submit-pass' } }, '開始同步'),
+    el('button', { class: 'btn primary wide', dataset: { action: 'submit-pass' } }, t('pass.start')),
   );
 }
 
 function moveSheet(id) {
   const item = activeItems(store.doc).find((row) => row.id === id);
   if (!item) return null;
-  return shell('移去邊個狀態',
+  return shell(t('move.title'),
     el('p', { class: 'lead' }, item.title),
     sortByOrder(store.doc.statuses).map((status) => el('button', {
       class: status.id === item.statusId ? 'btn primary wide' : 'btn wide',
       style: { 'margin-bottom': '8px' },
       dataset: { action: 'pick-status', id: item.id, status: status.id },
-    }, status.name)),
+    }, statusText(status))),
   );
 }
 
@@ -561,27 +593,27 @@ function itemSheet(id) {
   const item = activeItems(store.doc).find((row) => row.id === id);
   if (!item) return null;
   const filled = moreFilled(item);
-  return shell(item.isExample ? '例子' : '編輯行動',
+  return shell(item.isExample ? t('example') : t('edit'),
     peopleList(),
-    el('p', { class: 'muted' }, '改動會自動儲存喺呢部機'),
-    labeled('標題', el('input', {
+    el('p', { class: 'muted' }, t('autosave')),
+    labeled(t('title'), el('input', {
       id: 'item-title',
       type: 'text',
       value: item.title,
       dataset: { scope: 'item', bind: 'title', id: item.id },
     })),
-    labeled('狀態', el('select', { dataset: { scope: 'item', bind: 'statusId', id: item.id }, value: item.statusId },
-      sortByOrder(store.doc.statuses).map((status) => el('option', { value: status.id }, status.name)),
+    labeled(t('status'), el('select', { dataset: { scope: 'item', bind: 'statusId', id: item.id }, value: item.statusId },
+      sortByOrder(store.doc.statuses).map((status) => el('option', { value: status.id }, statusText(status))),
     )),
-    labeled('分類', el('select', { dataset: { scope: 'item', bind: 'categoryId', id: item.id }, value: item.categoryId || '' },
-      el('option', { value: '' }, '未分類'),
-      sortByOrder(store.doc.categories).map((category) => el('option', { value: category.id }, category.name)),
+    labeled(t('category'), el('select', { dataset: { scope: 'item', bind: 'categoryId', id: item.id }, value: item.categoryId || '' },
+      el('option', { value: '' }, t('uncategorized')),
+      sortByOrder(store.doc.categories).map((category) => el('option', { value: category.id }, categoryText(category))),
     )),
     el('details', { class: 'more' },
-      el('summary', { class: 'sum' }, filled ? `更多資料 · 已填 ${filled} 項` : '更多資料'),
+      el('summary', { class: 'sum' }, filled ? t('moreFilled', { n: filled }) : t('more')),
       visibleFields(store.doc).filter((field) => field.section === 'more' && field.visible).map((field) => renderField(item, field)),
     ),
-    el('button', { class: 'btn danger', dataset: { action: 'ask-delete-item', id: item.id } }, '刪除呢項'),
+    el('button', { class: 'btn danger', dataset: { action: 'ask-delete-item', id: item.id } }, t('deleteItem')),
   );
 }
 
@@ -591,10 +623,10 @@ function renderField(item, field) {
     const control = field.type === 'date'
       ? el('input', { type: 'date', value, dataset: { scope: 'custom', bind: 'value', id: item.id, field: field.id } })
       : el('input', { type: 'text', value, dataset: { scope: 'custom', bind: 'value', id: item.id, field: field.id } });
-    return labeled(field.label, control);
+    return labeled(fieldText(field), control);
   }
   if (field.key === 'contact' || field.key === 'owner' || field.key === 'waitingOn') {
-    return labeled(field.label, el('input', {
+    return labeled(fieldText(field), el('input', {
       type: 'text',
       value: item[field.key] || '',
       list: field.key === 'waitingOn' ? null : 'people-list',
@@ -602,7 +634,7 @@ function renderField(item, field) {
     }));
   }
   if (field.key === 'issue' || field.key === 'solution' || field.key === 'notes') {
-    return labeled(field.label, el('textarea', {
+    return labeled(fieldText(field), el('textarea', {
       dataset: { scope: 'item', bind: field.key, id: item.id },
     }, item[field.key] || ''));
   }
@@ -611,26 +643,26 @@ function renderField(item, field) {
     const iso = item[field.key];
     const timeSet = isDue ? item.dueTimeSet : item.startTimeSet;
     return el('div', { class: 'field' },
-      el('label', {}, field.label),
+      el('label', {}, fieldText(field)),
       el('div', { class: 'split' },
         el('input', {
           type: 'date',
-          'aria-label': `${field.label} 日期`,
+          'aria-label': t('datePart', { label: fieldText(field) }),
           value: iso ? hkDateString(new Date(iso)) : '',
           dataset: { scope: 'item', bind: isDue ? 'dueDate' : 'startDate', id: item.id },
         }),
         el('input', {
           type: 'time',
-          'aria-label': `${field.label} 時間`,
+          'aria-label': t('timePart', { label: fieldText(field) }),
           value: iso && timeSet ? hmValue(iso) : '',
           dataset: { scope: 'item', bind: isDue ? 'dueTime' : 'startTime', id: item.id },
         }),
       ),
-      el('button', { class: 'btn tiny', dataset: { action: isDue ? 'clear-due' : 'clear-start', id: item.id } }, '清除'),
+      el('button', { class: 'btn tiny', dataset: { action: isDue ? 'clear-due' : 'clear-start', id: item.id } }, t('clear')),
     );
   }
   if (field.key === 'nextFollowUp') {
-    return labeled(field.label, el('input', {
+    return labeled(fieldText(field), el('input', {
       type: 'date',
       value: item.nextFollowUp || '',
       dataset: { scope: 'item', bind: 'nextFollowUp', id: item.id },
@@ -659,7 +691,7 @@ function peopleList() {
 
 function hkDate(now) {
   const iso = hkDateString(now);
-  return { date: shortDate(iso, now), week: weekdayLabel(iso) };
+  return { date: shortDate(iso, now, L()), week: weekdayLabel(iso, L()) };
 }
 
 function canDrag() {

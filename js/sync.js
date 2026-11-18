@@ -1,6 +1,7 @@
 import { getContent, getRepo, normalizeRepoPath, putContent, validSlug } from './github.js';
 import { decryptJson, encryptJson } from './crypto.js';
-import { ERROR_TEXT, coded } from './errors.js';
+import { coded } from './errors.js';
+import { errorText, t } from './i18n.js';
 import { shouldWrite } from './model.js';
 import { syncLoop } from './synccore.js';
 
@@ -74,20 +75,20 @@ export function createSyncController({ store, db, toast, refresh }) {
     const token = store.secrets.token.trim();
     const passphrase = store.secrets.passphrase;
     if (!owner || !repo || !token) {
-      if (manual) toast(ERROR_TEXT.MISSING_CONFIG);
+      if (manual) toast(errorText('MISSING_CONFIG'));
       setPhase(store.sync.lastSyncedAt ? 'ok' : 'idle');
       return;
     }
     if (!validSlug(owner) || !validSlug(repo)) {
-      store.sync.error = ERROR_TEXT.BAD_NAME;
+      store.sync.error = errorText('BAD_NAME');
       setPhase('error');
-      if (manual) toast(ERROR_TEXT.BAD_NAME);
+      if (manual) toast(errorText('BAD_NAME'));
       return;
     }
     if (!normalizeRepoPath(path)) {
-      store.sync.error = ERROR_TEXT.BAD_PATH;
+      store.sync.error = errorText('BAD_PATH');
       setPhase('error');
-      if (manual) toast(ERROR_TEXT.BAD_PATH);
+      if (manual) toast(errorText('BAD_PATH'));
       return;
     }
     if (!passphrase) {
@@ -125,9 +126,9 @@ export function createSyncController({ store, db, toast, refresh }) {
       await saveSecrets();
       store.doc = await db.loadDoc();
       refresh?.({ main: true });
-      if (manual) toast('同步完成');
+      if (manual) toast(t('toast.synced'));
     } catch (err) {
-      const msg = ERROR_TEXT[err.code] || ERROR_TEXT.GITHUB;
+      const msg = errorText(err.code || 'GITHUB');
       const repeat = store.sync.error === msg && !manual;
       store.sync.error = msg;
       store.sync.lastSyncedAt = store.sync.lastSyncedAt || null;

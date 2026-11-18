@@ -11,53 +11,53 @@
   <meta name="robots" content="noindex, nofollow">
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
-  <meta name="apple-mobile-web-app-title" content="行動">
+  <meta name="apple-mobile-web-app-title" content="Action">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <meta http-equiv="Content-Security-Policy" content="default-src 'self' blob:; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self' https://api.github.com; manifest-src 'self'; worker-src 'self'; font-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'">
-  <title>行動 Manager</title>
+  <title>Action Manager / 行動</title>
   <link rel="manifest" href="./manifest.json">
   <link rel="icon" href="./icons/favicon-32.png" type="image/png" sizes="32x32">
   <link rel="apple-touch-icon" href="./icons/apple-touch-icon.png" sizes="180x180">
   <link rel="stylesheet" href="./css/app.css">
 </head>
 <body>
-  <a class="skip" href="#view">跳到內容</a>
+  <a class="skip" href="#view" data-i18n="skip">跳到內容</a>
   <header class="app-header">
     <div class="header-inner">
       <div class="title-row">
         <div class="brand-wrap">
           <span class="mark" aria-hidden="true"></span>
-          <h1 class="brand">行動</h1>
+          <h1 class="brand" data-i18n="brand">行動</h1>
         </div>
         <div class="title-actions">
           <button id="sync-chip" class="sync-chip" type="button" data-action="sync" data-phase="idle" aria-live="polite">
             <i class="dot" aria-hidden="true"></i>
             <span id="sync-label">未同步</span>
           </button>
-          <button class="icon-btn" type="button" id="search-toggle" data-action="toggle-search" aria-label="搜尋" aria-pressed="false"></button>
-          <button class="icon-btn" type="button" id="settings-toggle" data-action="set-view" data-view="settings" aria-label="設定"></button>
+          <button class="icon-btn" type="button" id="search-toggle" data-action="toggle-search" data-i18n-label="search" aria-label="搜尋" aria-pressed="false"></button>
+          <button class="icon-btn" type="button" id="settings-toggle" data-action="set-view" data-view="settings" data-i18n-label="nav.settings" aria-label="設定"></button>
         </div>
       </div>
       <form id="quick-form" class="quick" autocomplete="off">
-        <input id="quick-input" name="q" type="text" maxlength="500" enterkeyhint="done" placeholder="加一項… @人 #分類 聽日 3pm" aria-label="快速新增">
-        <button class="btn primary" type="submit">加</button>
+        <input id="quick-input" name="q" type="text" maxlength="500" enterkeyhint="done" data-i18n-placeholder="quickPh" data-i18n-label="quickLabel" placeholder="加一項… @人 #分類 聽日 3pm" aria-label="快速新增">
+        <button class="btn primary" type="submit" data-i18n="add">加</button>
       </form>
       <div id="search-row" class="search-row" hidden>
-        <input id="search-input" type="search" placeholder="搜尋標題、人、備註" aria-label="搜尋" autocomplete="off">
+        <input id="search-input" type="search" data-i18n-placeholder="searchPh" data-i18n-label="search" placeholder="搜尋標題、人、備註" aria-label="搜尋" autocomplete="off">
         <button class="btn" type="button" id="filter-btn" data-action="open-filters">篩選</button>
       </div>
     </div>
   </header>
-  <nav class="nav" aria-label="主要">
+  <nav class="nav" data-i18n-label="navLabel" aria-label="主要">
     <div class="nav-inner">
-      <button class="nav-btn" type="button" data-action="set-view" data-view="today">今日</button>
-      <button class="nav-btn" type="button" data-action="set-view" data-view="board">看板</button>
-      <button class="nav-btn" type="button" data-action="set-view" data-view="agenda">行程</button>
-      <button class="nav-btn" type="button" data-action="set-view" data-view="people">人物</button>
+      <button class="nav-btn" type="button" data-action="set-view" data-view="today"><span data-i18n="nav.today">今日</span></button>
+      <button class="nav-btn" type="button" data-action="set-view" data-view="board"><span data-i18n="nav.board">看板</span></button>
+      <button class="nav-btn" type="button" data-action="set-view" data-view="agenda"><span data-i18n="nav.agenda">行程</span></button>
+      <button class="nav-btn" type="button" data-action="set-view" data-view="people"><span data-i18n="nav.people">人物</span></button>
     </div>
   </nav>
   <main id="view">
-    <p class="loading">載入緊…</p>
+    <p class="loading" data-i18n="loading">載入緊…</p>
   </main>
   <div id="sheet-root"></div>
   <div id="dialog-root"></div>
