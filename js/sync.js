@@ -1,9 +1,9 @@
-import { getContent, getRepo, normalizeRepoPath, putContent, validSlug } from './github.js';
-import { decryptJson, encryptJson } from './crypto.js';
-import { coded } from './errors.js';
-import { errorText, t } from './i18n.js';
-import { shouldWrite } from './model.js';
-import { syncLoop } from './synccore.js';
+import { getContent, getRepo, normalizeRepoPath, putContent, validSlug } from './github.js?v=v4';
+import { decryptJson, encryptJson } from './crypto.js?v=v4';
+import { coded } from './errors.js?v=v4';
+import { errorText, t } from './i18n.js?v=v4';
+import { shouldWrite } from './model.js?v=v4';
+import { syncLoop } from './synccore.js?v=v4';
 
 export function createSyncController({ store, db, toast, refresh }) {
   let inSync = false;

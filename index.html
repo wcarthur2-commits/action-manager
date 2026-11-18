@@ -13,12 +13,125 @@
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-title" content="Action">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
-  <meta http-equiv="Content-Security-Policy" content="default-src 'self' blob:; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self' https://api.github.com; manifest-src 'self'; worker-src 'self'; font-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self' blob:; script-src 'self' 'sha256-xGr5XIdf4j1ZBlPhV/2Dr+HC7ljH5IpaOiKFpNDIYRo='; style-src 'self'; img-src 'self' data:; connect-src 'self' https://api.github.com; manifest-src 'self'; worker-src 'self'; font-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'">
   <title>Action Manager / 行動</title>
-  <link rel="manifest" href="./manifest.json">
+  <script>(function () {
+  'use strict';
+  var PREFIX = 'action-manager-';
+  var WAIT_MS = 8000;
+  var state = { ok: false, shown: false, errors: [] };
+  var timer = null;
+  function text(err) {
+    if (!err) return '';
+    if (typeof err === 'string') return err;
+    return (err.name ? err.name + ': ' : '') + (err.message || String(err));
+  }
+  function note(msg) {
+    if (msg && state.errors.indexOf(msg) < 0 && state.errors.length < 6) state.errors.push(msg);
+  }
+  function el(tag, css, content) {
+    var node = document.createElement(tag);
+    if (css) node.style.cssText = css;
+    if (content) node.textContent = content;
+    return node;
+  }
+  function button(label, primary, onClick) {
+    var b = el('button', 'display:block;width:100%;margin:10px 0 0;padding:14px 16px;font:600 17px -apple-system,system-ui,sans-serif;border-radius:12px;border:1px solid #1f3b2c;'
+      + (primary ? 'background:#1f3b2c;color:#fff;' : 'background:#fff;color:#1f3b2c;'), label);
+    b.type = 'button';
+    b.addEventListener('click', onClick);
+    return b;
+  }
+  function freshUrl() {
+    return location.pathname + '?r=' + Date.now() + location.hash;
+  }
+  function reload() {
+    location.replace(freshUrl());
+  }
+  function repair(btn) {
+    btn.disabled = true;
+    btn.textContent = '修復緊… / Repairing…';
+    var jobs = [];
+    // Only service workers and Cache Storage. Never IndexedDB or localStorage (your items and sync settings).
+    if ('serviceWorker' in navigator && navigator.serviceWorker.getRegistrations) {
+      jobs.push(navigator.serviceWorker.getRegistrations().then(function (regs) {
+        return Promise.all(regs.map(function (r) { return r.unregister(); }));
+      }).catch(function () {}));
+    }
+    if (window.caches && caches.keys) {
+      jobs.push(caches.keys().then(function (keys) {
+        return Promise.all(keys.filter(function (k) { return k.indexOf(PREFIX) === 0; }).map(function (k) { return caches.delete(k); }));
+      }).catch(function () {}));
+    }
+    Promise.all(jobs).then(reload, reload);
+  }
+  function show(reason) {
+    if (state.ok) return;
+    note(reason);
+    var box = document.getElementById('boot-fail');
+    if (!box) {
+      box = el('div', 'position:fixed;inset:0;z-index:2147483647;overflow:auto;background:#f3efe6;color:#1d1f1a;'
+        + 'font:16px/1.5 -apple-system,system-ui,sans-serif;padding:max(24px,env(safe-area-inset-top)) 20px 32px;');
+      box.id = 'boot-fail';
+      box.setAttribute('role', 'alert');
+      var inner = el('div', 'max-width:520px;margin:0 auto;');
+      inner.appendChild(el('h1', 'font-size:22px;margin:8px 0 6px;', '載入唔到 App / The app could not start'));
+      inner.appendChild(el('p', 'margin:0 0 4px;', '你嘅資料仍然安全咁留喺呢部機。請撳「重新載入」；唔得就撳「修復並重新載入」。'));
+      inner.appendChild(el('p', 'margin:0 0 4px;', 'Your data is still safe on this device. Tap Reload. If that does not help, tap Repair & reload.'));
+      inner.appendChild(el('p', 'margin:0 0 12px;font-size:14px;color:#555;', '修復只會清走 App 程式快取，唔會刪除事項同同步設定。 / Repair only clears the app\u2019s cached code. Your items and sync settings are kept.'));
+      inner.appendChild(button('重新載入 / Reload', true, reload));
+      inner.appendChild(button('修復並重新載入 / Repair & reload', false, function () { repair(this); }));
+      var details = el('pre', 'white-space:pre-wrap;word-break:break-word;font:12px/1.4 ui-monospace,Menlo,monospace;background:#fff;border:1px solid #ddd;border-radius:8px;padding:10px;margin:16px 0 0;');
+      details.id = 'boot-fail-detail';
+      inner.appendChild(el('p', 'margin:16px 0 0;font-size:14px;color:#555;', '錯誤 / Error:'));
+      inner.appendChild(details);
+      box.appendChild(inner);
+      (document.body || document.documentElement).appendChild(box);
+    }
+    var detail = document.getElementById('boot-fail-detail');
+    if (detail) detail.textContent = (state.errors.join('\n') || 'unknown') + '\n\n' + navigator.userAgent;
+    state.shown = true;
+    if ('serviceWorker' in navigator && navigator.serviceWorker.getRegistration) {
+      navigator.serviceWorker.getRegistration().then(function (r) { if (r) r.update(); }).catch(function () {});
+    }
+  }
+  function fail(reason) {
+    if (state.ok) return;
+    note(reason);
+    // Let other errors from the same failure arrive, then show once the DOM exists.
+    setTimeout(function () {
+      if (document.body) show();
+      else document.addEventListener('DOMContentLoaded', function () { show(); });
+    }, 300);
+  }
+  window.addEventListener('error', function (event) {
+    if (state.ok) return;
+    var t = event && event.target;
+    if (t && t !== window && (t.tagName === 'SCRIPT' || t.tagName === 'LINK')) {
+      if (t.tagName === 'SCRIPT') fail('Failed to load app code (module): ' + (t.src || 'script') + ' or one of its imports');
+      return;
+    }
+    fail(text(event.error) || event.message || 'Script error');
+  }, true);
+  window.addEventListener('unhandledrejection', function (event) {
+    fail(text(event.reason) || 'Unhandled promise rejection');
+  });
+  timer = setTimeout(function () { show('Timed out: app did not start within ' + (WAIT_MS / 1000) + 's'); }, WAIT_MS);
+  window.__amReady = function () {
+    state.ok = true;
+    clearTimeout(timer);
+    var box = document.getElementById('boot-fail');
+    if (box) box.remove();
+    if (/[?&]r=\d+/.test(location.search) && history.replaceState) {
+      history.replaceState(null, '', location.pathname + location.hash);
+    }
+  };
+  window.__amFail = function (err) { fail(text(err)); };
+})();</script>
+  <link rel="manifest" href="./manifest.json?v=v4">
   <link rel="icon" href="./icons/favicon-32.png" type="image/png" sizes="32x32">
   <link rel="apple-touch-icon" href="./icons/apple-touch-icon.png" sizes="180x180">
-  <link rel="stylesheet" href="./css/app.css">
+  <link rel="stylesheet" href="./css/app.css?v=v4">
 </head>
 <body>
   <a class="skip" href="#view" data-i18n="skip">跳到內容</a>
@@ -63,6 +176,6 @@
   <div id="dialog-root"></div>
   <div id="toast" role="status" hidden></div>
   <input id="import-file" type="file" accept="application/json,.json" hidden>
-  <script type="module" src="./js/app.js"></script>
+  <script type="module" src="./js/app.js?v=v4"></script>
 </body>
 </html>

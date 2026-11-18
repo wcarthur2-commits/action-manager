@@ -1,4 +1,4 @@
-import { canonicalDoc, mergeDocs } from './model.js';
+import { canonicalDoc, mergeDocs } from './model.js?v=v4';
 
 /**
  * Pull the remote ciphertext, decrypt, merge by updatedAt, then push.

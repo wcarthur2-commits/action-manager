@@ -1,8 +1,8 @@
-import { DEFAULT_SYNC } from './defaults.js';
-import * as db from './db.js';
-import { toast } from './dom.js';
-import { applyRecordRename, detectLanguage, errorText, getLang, recordLabel, setLang, t } from './i18n.js';
-import { toIcs } from './ics.js';
+import { DEFAULT_SYNC } from './defaults.js?v=v4';
+import * as db from './db.js?v=v4';
+import { toast } from './dom.js?v=v4';
+import { applyRecordRename, detectLanguage, errorText, getLang, recordLabel, setLang, t } from './i18n.js?v=v4';
+import { toIcs } from './ics.js?v=v4';
 import {
   PALETTE,
   activeItems,
@@ -21,11 +21,11 @@ import {
   toBackup,
   tombstoneExamples,
   uid,
-} from './model.js';
-import { parseQuick } from './parse.js';
-import { createSyncController } from './sync.js';
-import { hkWallToISO } from './time.js';
-import * as ui from './ui.js';
+} from './model.js?v=v4';
+import { parseQuick } from './parse.js?v=v4';
+import { createSyncController } from './sync.js?v=v4';
+import { hkWallToISO } from './time.js?v=v4';
+import * as ui from './ui.js?v=v4';
 
 const store = {
   doc: null,
@@ -636,14 +636,26 @@ async function registerSW() {
   const hadController = !!navigator.serviceWorker.controller;
   let reloading = false;
   navigator.serviceWorker.addEventListener('controllerchange', () => {
+    // A new version took over: reload once so page and code match. Guard against reload loops.
     if (!hadController || reloading) return;
+    let last = 0;
+    try { last = Number(sessionStorage.getItem('am-sw-reload') || 0); } catch { /* private mode */ }
+    if (Date.now() - last < 30000) return;
+    try { sessionStorage.setItem('am-sw-reload', String(Date.now())); } catch { /* private mode */ }
     reloading = true;
     location.reload();
   });
+  let reg = null;
   try {
-    await navigator.serviceWorker.register('./sw.js', { scope: './', updateViaCache: 'none' });
+    reg = await navigator.serviceWorker.register('./sw.js', { scope: './', updateViaCache: 'none' });
   } catch {
-    try { await navigator.serviceWorker.register('./sw.js'); } catch { /* private mode or insecure origin */ }
+    try { reg = await navigator.serviceWorker.register('./sw.js'); } catch { /* private mode or insecure origin */ }
+  }
+  if (reg) {
+    // Home-screen apps can stay open for days; look for a new version whenever the app comes back.
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'visible') reg.update().catch(() => {});
+    });
   }
 }
 
@@ -655,6 +667,7 @@ async function boot() {
   if (!db.supported()) {
     store.fatal = t('fatal.db');
     ui.renderMain();
+    window.__amReady?.();
     return;
   }
   try {
@@ -680,6 +693,7 @@ async function boot() {
     }
     ui.syncChrome();
     ui.renderMain();
+    window.__amReady?.();
     await registerSW();
     document.addEventListener('visibilitychange', () => {
       if (document.visibilityState === 'visible') sync.run({ manual: false });
@@ -698,8 +712,13 @@ async function boot() {
   } catch (err) {
     console.error(err);
     store.fatal = t('fatal.load');
-    ui.renderMain();
+    try { ui.renderMain(); } catch { /* boot screen below */ }
+    window.__amFail?.(err);
+    registerSW();
   }
 }
 
-boot();
+boot().catch((err) => {
+  console.error(err);
+  window.__amFail?.(err);
+});

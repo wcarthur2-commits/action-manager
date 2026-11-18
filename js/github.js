@@ -1,7 +1,7 @@
 // The only network calls in this app live here, and they only go to api.github.com.
 
-import { b64ToUtf8, utf8ToB64 } from './b64.js';
-import { coded } from './errors.js';
+import { b64ToUtf8, utf8ToB64 } from './b64.js?v=v4';
+import { coded } from './errors.js?v=v4';
 
 const API = 'https://api.github.com';
 

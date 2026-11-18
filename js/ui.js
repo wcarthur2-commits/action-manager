@@ -1,6 +1,6 @@
-import { DEFAULT_SYNC } from './defaults.js';
-import { el, icon, nextFrame } from './dom.js';
-import { getLang, recordLabel, t } from './i18n.js';
+import { DEFAULT_SYNC } from './defaults.js?v=v4';
+import { el, icon, nextFrame } from './dom.js?v=v4';
+import { getLang, recordLabel, t } from './i18n.js?v=v4';
 import {
   PALETTE,
   activeItems,
@@ -20,8 +20,8 @@ import {
   statusById,
   visibleFields,
   waitingDays,
-} from './model.js';
-import { addHkDays, dayNickname, formatHm, formatSyncTime, hkDateString, hmValue, shortDate, weekdayLabel } from './time.js';
+} from './model.js?v=v4';
+import { addHkDays, dayNickname, formatHm, formatSyncTime, hkDateString, hmValue, shortDate, weekdayLabel } from './time.js?v=v4';
 
 function L() {
   return getLang();

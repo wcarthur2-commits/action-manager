@@ -1,5 +1,5 @@
-import { t } from './i18n.js';
-import { hkDateString, hkParts } from './time.js';
+import { t } from './i18n.js?v=v4';
+import { hkDateString, hkParts } from './time.js?v=v4';
 
 function icsEscape(value) {
   return String(value || '')

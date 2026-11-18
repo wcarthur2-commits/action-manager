@@ -1,5 +1,5 @@
-import { recordLabel, stockName } from './i18n.js';
-import { addHkDays, diffHkDays, hkDateString, hkWallToISO } from './time.js';
+import { recordLabel, stockName } from './i18n.js?v=v4';
+import { addHkDays, diffHkDays, hkDateString, hkWallToISO } from './time.js?v=v4';
 
 export const SEED_TS = Date.parse('2020-01-01T00:00:00.000Z');
 export const EXAMPLE_IDS = ['ex-tax', 'ex-quote', 'ex-meeting'];

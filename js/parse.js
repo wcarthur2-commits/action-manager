@@ -1,4 +1,4 @@
-import { addHkDays, hkDateString, hkDow, hkWallToISO, padDate, validYmd } from './time.js';
+import { addHkDays, hkDateString, hkDow, hkWallToISO, padDate, validYmd } from './time.js?v=v4';
 
 const WEEKDAYS = { 日: 0, 天: 0, 一: 1, 二: 2, 三: 3, 四: 4, 五: 5, 六: 6 };
 const EN_WEEKDAYS = {

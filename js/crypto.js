@@ -1,5 +1,5 @@
-import { b64ToBytes, bytesToB64 } from './b64.js';
-import { coded } from './errors.js';
+import { b64ToBytes, bytesToB64 } from './b64.js?v=v4';
+import { coded } from './errors.js?v=v4';
 
 export const DEFAULT_ITERATIONS = 600_000;
 const AAD = new TextEncoder().encode('action-manager-seal-v1');
